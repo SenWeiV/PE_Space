@@ -39,8 +39,6 @@ export default function PromptCard({ prompt }: Props) {
           fontSize: 13,
           lineHeight: 1.6,
           margin: 0,
-          maxHeight: 200,
-          overflow: "auto",
           fontFamily: "inherit",
           color: "#333",
         }}
