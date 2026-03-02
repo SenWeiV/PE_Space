@@ -30,8 +30,8 @@ export default function PromptCard({ prompt }: Props) {
     <Card
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 18, fontWeight: 600 }}>{prompt.title}</span>
-          {prompt.category && <Tag color="blue" style={{ fontSize: 14 }}>{prompt.category}</Tag>}
+          <span style={{ fontSize: 22, fontWeight: 600 }}>{prompt.title}</span>
+          {prompt.category && <Tag color="blue" style={{ fontSize: 16, padding: "2px 10px" }}>{prompt.category}</Tag>}
         </div>
       }
       extra={
