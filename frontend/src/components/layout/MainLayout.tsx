@@ -12,6 +12,7 @@ export default function MainLayout() {
   const navItems = [
     { path: "/", icon: "◉", label: "首页" },
     { path: "/apps", icon: "📱", label: "App" },
+    { path: "/history", icon: "🕐", label: "历史记录" },
     ...(user?.role === "admin" ? [{ path: "/admin/users", icon: "⚙️", label: "管理" }] : []),
   ];
 

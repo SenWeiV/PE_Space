@@ -51,10 +51,29 @@ async def deploy_app(app_id: int, db: Session) -> None:
 def extract_upload(zip_path: str, app_id: int) -> str:
     """解压 zip 到 uploads 目录，自动定位 app.py 所在目录作为构建上下文"""
     extract_to = Path(settings.upload_dir) / str(app_id)
+    data_dir = extract_to / "data"
+    tmp_data = Path(settings.upload_dir) / f".data_backup_{app_id}"
+
+    # 重新上传时，先将 data/ 移出保存，避免被 rmtree 一并删除
+    if data_dir.exists():
+        shutil.move(str(data_dir), str(tmp_data))
+
     if extract_to.exists():
         shutil.rmtree(extract_to)
     extract_to.mkdir(parents=True, exist_ok=True)
+
     safe_extract_zip(zip_path, str(extract_to))
+
+    # 还原 data/ 目录；首次上传则新建
+    if tmp_data.exists():
+        shutil.move(str(tmp_data), str(data_dir))
+    else:
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+    # 每次部署递增版本号，工具可读取 /app/data/.deploy_version 写入运行记录
+    version_file = data_dir / ".deploy_version"
+    current = int(version_file.read_text().strip()) if version_file.exists() else 0
+    version_file.write_text(str(current + 1))
 
     # 在解压目录内递归搜索 app.py（最多搜索 3 层），找到后用其所在目录作为构建上下文
     # 这样可以兼容 macOS 压缩产生的中文/多层目录结构

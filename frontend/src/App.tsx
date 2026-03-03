@@ -5,6 +5,7 @@ import LoginPage from "@/pages/LoginPage";
 import HomePage from "@/pages/HomePage";
 import AppsListPage from "@/pages/AppsListPage";
 import AppDetailPage from "@/pages/AppDetailPage";
+import HistoryPage from "@/pages/HistoryPage";
 import UserManagePage from "@/pages/admin/UserManagePage";
 import PromptManagePage from "@/pages/admin/PromptManagePage";
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="apps" element={<AppsListPage />} />
           <Route path="apps/:appId" element={<AppDetailPage />} />
+          <Route path="history" element={<HistoryPage />} />
 
           {/* 管理员路由 */}
           <Route

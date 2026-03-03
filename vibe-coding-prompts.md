@@ -218,3 +218,84 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 )
 ```
+
+### 【必须遵守】平台运行历史规范
+
+平台提供统一的"历史记录"页面，聚合所有 App 的运行结果。App 必须在每次成功产出结果后，调用以下标准函数写入运行记录，否则用户无法在历史记录页看到自己的运行结果。
+
+**获取当前用户名（平台通过 URL 参数传入，必须读取）：**
+```python
+# 在需要用到用户名的地方调用
+username = st.query_params.get("pe_user", "anonymous")
+```
+
+**标准 save_run_record 函数（必须原样复制到 app.py）：**
+```python
+import uuid
+
+def save_run_record(
+    username: str,
+    inputs: dict,
+    output_bytes: bytes,
+    output_filename: str,
+    summary: str,
+) -> None:
+    """
+    保存本次运行记录到平台标准格式。
+    平台"历史记录"页面依赖此函数，必须在每次成功产出结果后调用。
+
+    Args:
+        username: 当前用户名，从 st.query_params.get("pe_user", "anonymous") 获取
+        inputs: 本次运行的输入参数，dict 格式，例如 {"关键词": "AI", "页数": 3}
+        output_bytes: 结果文件的二进制内容（bytes）
+        output_filename: 结果文件名，例如 "result.xlsx"
+        summary: 一句话描述本次结果，例如 "找到 42 条数据"
+    """
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
+
+    # 保存输出文件
+    output_dir = DATA_DIR / "outputs" / run_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / output_filename).write_bytes(output_bytes)
+
+    # 保存运行记录
+    history_dir = DATA_DIR / "history"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    record = {
+        "run_id": run_id,
+        "username": username,
+        "timestamp": datetime.now().isoformat(),
+        "inputs": inputs,
+        "output_filename": output_filename,
+        "output_path": f"outputs/{run_id}/{output_filename}",
+        "summary": summary,
+    }
+    (history_dir / f"{run_id}.json").write_text(
+        json.dumps(record, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+```
+
+**调用示例（在点击"运行"按钮、结果生成后调用）：**
+```python
+if st.button("▶️ 开始处理", type="primary"):
+    username = st.query_params.get("pe_user", "anonymous")
+
+    with st.spinner("处理中..."):
+        # ... 你的处理逻辑 ...
+        buf = BytesIO()
+        result_df.to_excel(buf, index=False, engine="openpyxl")
+        output_bytes = buf.getvalue()
+
+    # 提供下载
+    st.download_button("📥 下载结果", data=output_bytes, file_name="result.xlsx")
+
+    # 写入平台历史记录（必须调用）
+    save_run_record(
+        username=username,
+        inputs={"处理行数": len(df), "过滤条件": filter_val},
+        output_bytes=output_bytes,
+        output_filename="result.xlsx",
+        summary=f"处理完成，共 {len(result_df)} 行",
+    )
+```

@@ -48,3 +48,66 @@ export const deleteApp = (id: number) => client.delete(`/apps/${id}`);
 
 export const getAppLogs = (id: number) =>
   client.get<{ app_id: number; status: string; log: string }>(`/apps/${id}/logs`);
+
+export interface RunRecord {
+  run_id: string;
+  username: string;
+  timestamp: string;
+  inputs: Record<string, unknown>;
+  output_path: string;
+  output_filename: string;
+  summary: string;
+  app_version?: number;
+}
+
+export const getAppHistory = (id: number) =>
+  client.get<RunRecord[]>(`/apps/${id}/history`);
+
+export const downloadOutput = async (appId: number, runId: string, filename: string) => {
+  const res = await client.get(
+    `/apps/${appId}/outputs/${encodeURIComponent(runId)}/${encodeURIComponent(filename)}`,
+    { responseType: "blob" }
+  );
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
+
+export interface AllRunRecord extends RunRecord {
+  app_id: number;
+  app_name: string;
+  app_slug: string;
+}
+
+export const listAllRuns = () =>
+  client.get<{ runs: AllRunRecord[] }>("/apps/history/runs");
+
+export interface HistoryFile {
+  app_id: number;
+  app_name: string;
+  app_slug: string;
+  name: string;
+  path: string;
+  size: number;
+  modified_at: string;
+}
+
+export const listAllFiles = () =>
+  client.get<{ files: HistoryFile[] }>("/apps/history/files");
+
+export const downloadAppFile = async (appId: number, filePath: string, name: string) => {
+  const res = await client.get(`/apps/${appId}/files/${filePath}`, { responseType: "blob" });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
