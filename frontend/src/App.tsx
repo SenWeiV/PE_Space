@@ -7,7 +7,7 @@ import AppsListPage from "@/pages/AppsListPage";
 import AppDetailPage from "@/pages/AppDetailPage";
 import HistoryPage from "@/pages/HistoryPage";
 import UserManagePage from "@/pages/admin/UserManagePage";
-import PromptManagePage from "@/pages/admin/PromptManagePage";
+import TemplateManagePage from "@/pages/admin/TemplateManagePage";
 
 export default function App() {
   return (
@@ -38,10 +38,10 @@ export default function App() {
             }
           />
           <Route
-            path="admin/prompts"
+            path="admin/template"
             element={
               <AuthGuard requireAdmin>
-                <PromptManagePage />
+                <TemplateManagePage />
               </AuthGuard>
             }
           />

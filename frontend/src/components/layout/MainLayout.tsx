@@ -1,5 +1,13 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
+import {
+  HomeOutlined,
+  AppstoreOutlined,
+  HistoryOutlined,
+  UserOutlined,
+  FileTextOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -9,11 +17,17 @@ export default function MainLayout() {
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
+  const isAdmin = user?.role === "admin";
+
   const navItems = [
-    { path: "/", icon: "◉", label: "首页" },
-    { path: "/apps", icon: "📱", label: "App" },
-    { path: "/history", icon: "🕐", label: "历史记录" },
-    ...(user?.role === "admin" ? [{ path: "/admin/users", icon: "⚙️", label: "管理" }] : []),
+    { path: "/", icon: <HomeOutlined />, label: "首页" },
+    { path: "/apps", icon: <AppstoreOutlined />, label: "应用管理" },
+    { path: "/history", icon: <HistoryOutlined />, label: "历史记录" },
+  ];
+
+  const adminMenuItems = [
+    { path: "/admin/users", icon: <UserOutlined />, label: "用户管理" },
+    { path: "/admin/template", icon: <FileTextOutlined />, label: "系统模板管理" },
   ];
 
   return (
@@ -45,6 +59,7 @@ export default function MainLayout() {
 
         {/* 导航 */}
         <nav style={{ flex: 1, padding: "16px 12px", overflowY: "auto" }}>
+          {/* 普通导航项 */}
           {navItems.map((item) => (
             <div
               key={item.path}
@@ -66,10 +81,56 @@ export default function MainLayout() {
                   (e.currentTarget as HTMLElement).style.background = "transparent";
               }}
             >
-              <span style={{ fontSize: 18 }}>{item.icon}</span>
+              <span style={{ fontSize: 18, display: "flex", alignItems: "center", color: isActive(item.path) ? "#165DFF" : "#86909C" }}>{item.icon}</span>
               <span>{item.label}</span>
             </div>
           ))}
+
+          {/* 管理后台菜单 */}
+          {isAdmin && (
+            <>
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px 16px", marginTop: 8, marginBottom: 4,
+                  borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  color: "#86909C",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                <SettingOutlined style={{ fontSize: 14, color: "#86909C" }} />
+                <span>管理后台</span>
+              </div>
+              {adminMenuItems.map((item) => {
+                const isSubActive = location.pathname === item.path;
+                return (
+                  <div
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 16px 10px 32px", marginBottom: 2,
+                      borderRadius: 6, fontSize: 13, fontWeight: isSubActive ? 600 : 500,
+                      color: isSubActive ? "#1677ff" : "#666",
+                      background: isSubActive ? "#e6f4ff" : "transparent",
+                      cursor: "pointer", transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSubActive)
+                        (e.currentTarget as HTMLElement).style.background = "#f7f7f7";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSubActive)
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }}
+                  >
+                    <span style={{ fontSize: 14, display: "flex", alignItems: "center", color: isSubActive ? "#165DFF" : "#86909C" }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* 用户信息 */}
