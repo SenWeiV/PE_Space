@@ -7,6 +7,7 @@ import AppsListPage from "@/pages/AppsListPage";
 import AppDetailPage from "@/pages/AppDetailPage";
 import UserManagePage from "@/pages/admin/UserManagePage";
 import PromptManagePage from "@/pages/admin/PromptManagePage";
+import TemplateManagePage from "@/pages/admin/TemplateManagePage";
 
 export default function App() {
   return (
@@ -28,6 +29,14 @@ export default function App() {
 
           {/* 管理员路由 */}
           <Route
+            path="admin"
+            element={
+              <AuthGuard requireAdmin>
+                <UserManagePage />
+              </AuthGuard>
+            }
+          />
+          <Route
             path="admin/users"
             element={
               <AuthGuard requireAdmin>
@@ -40,6 +49,14 @@ export default function App() {
             element={
               <AuthGuard requireAdmin>
                 <PromptManagePage />
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="admin/template"
+            element={
+              <AuthGuard requireAdmin>
+                <TemplateManagePage />
               </AuthGuard>
             }
           />

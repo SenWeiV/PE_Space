@@ -9,10 +9,19 @@ export default function MainLayout() {
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
+  const isAdmin = user?.role === "admin";
+
+  // 普通导航项
   const navItems = [
     { path: "/", icon: "◉", label: "首页" },
     { path: "/apps", icon: "📱", label: "App" },
-    ...(user?.role === "admin" ? [{ path: "/admin/users", icon: "⚙️", label: "管理" }] : []),
+  ];
+
+  // 管理子菜单
+  const adminSubItems = [
+    { path: "/admin/users", icon: "👤", label: "用户管理" },
+    { path: "/admin/prompts", icon: "📝", label: "提示词管理" },
+    { path: "/admin/template", icon: "📋", label: "模板管理" },
   ];
 
   return (
@@ -44,6 +53,7 @@ export default function MainLayout() {
 
         {/* 导航 */}
         <nav style={{ flex: 1, padding: "16px 12px", overflowY: "auto" }}>
+          {/* 普通导航项 */}
           {navItems.map((item) => (
             <div
               key={item.path}
@@ -69,6 +79,52 @@ export default function MainLayout() {
               <span>{item.label}</span>
             </div>
           ))}
+
+          {/* 管理子菜单 */}
+          {isAdmin && (
+            <>
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px 16px", marginTop: 8, marginBottom: 4,
+                  borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  color: "#999",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                <span style={{ fontSize: 10 }}>▪</span>
+                <span>管理后台</span>
+              </div>
+              {adminSubItems.map((item) => {
+                const isSubActive = location.pathname === item.path;
+                return (
+                  <div
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 16px 10px 32px", marginBottom: 2,
+                      borderRadius: 6, fontSize: 13, fontWeight: isSubActive ? 600 : 500,
+                      color: isSubActive ? "#1677ff" : "#666",
+                      background: isSubActive ? "#e6f4ff" : "transparent",
+                      cursor: "pointer", transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSubActive)
+                        (e.currentTarget as HTMLElement).style.background = "#f7f7f7";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSubActive)
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* 用户信息 */}
