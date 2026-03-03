@@ -1,9 +1,11 @@
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, DeleteOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import client from "@/api/client";
 import type { User } from "@/api/auth";
 import dayjs from "dayjs";
+
+const { confirm } = Modal;
 
 export default function UserManagePage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -38,6 +40,26 @@ export default function UserManagePage() {
     fetchUsers();
   };
 
+  const handleDelete = async (user: User) => {
+    confirm({
+      title: "确认删除用户？",
+      icon: <ExclamationCircleFilled />,
+      content: `确定要删除用户 "${user.username}" 吗？此操作不可恢复。`,
+      okText: "确认删除",
+      okButtonProps: { danger: true },
+      cancelText: "取消",
+      async onOk() {
+        try {
+          await client.delete(`/admin/users/${user.id}`);
+          message.success("删除成功");
+          fetchUsers();
+        } catch (e: any) {
+          message.error(e.response?.data?.detail || "删除失败");
+        }
+      },
+    });
+  };
+
   const columns = [
     { title: "ID", dataIndex: "id", width: 60 },
     { title: "用户名", dataIndex: "username" },
@@ -59,9 +81,19 @@ export default function UserManagePage() {
     {
       title: "操作",
       render: (_: any, record: User) => (
-        <Button size="small" onClick={() => handleToggleActive(record)}>
-          {record.is_active ? "禁用" : "启用"}
-        </Button>
+        <Space>
+          <Button size="small" onClick={() => handleToggleActive(record)}>
+            {record.is_active ? "禁用" : "启用"}
+          </Button>
+          <Button 
+            size="small" 
+            danger 
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          >
+            删除
+          </Button>
+        </Space>
       ),
     },
   ];
