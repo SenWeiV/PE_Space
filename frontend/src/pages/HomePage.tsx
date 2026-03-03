@@ -279,25 +279,23 @@ export default function HomePage() {
   return (
     <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 顶部标题区 - 大量留白 */}
-      <div style={{ textAlign: "center", padding: "40px 0 32px" }}>
-        <Title level={2} style={{ 
-          margin: 0, 
-          color: theme.textPrimary, 
+      <div style={{ padding: "40px 0 32px" }}>
+        <h1 style={{ 
           fontSize: 28, 
-          fontWeight: 700,
-          letterSpacing: '-0.5px'
+          fontWeight: 700, 
+          color: "#1a1a1a", 
+          letterSpacing: "-0.5px", 
+          margin: "0 0 20px"
         }}>
           AI 编程提示词生成器
-        </Title>
+        </h1>
         
         {/* 重点提示文字 - 突出显示 */}
         <div style={{
-          marginTop: 20,
-          padding: "16px 32px",
+          padding: "16px 24px",
           background: `linear-gradient(135deg, ${theme.primaryLight} 0%, #FFFFFF 100%)`,
           border: `2px solid ${theme.primary}`,
           borderRadius: 12,
-          display: "inline-block",
           boxShadow: '0 4px 16px rgba(22, 93, 255, 0.15)',
         }}>
           <Space size={12} align="center">
@@ -567,14 +565,11 @@ export default function HomePage() {
         </Col>
       </Row>
 
-      {/* 底部操作区 - 突出显示 */}
+      {/* 底部操作区 */}
       <div style={{ 
         marginTop: 32, 
-        padding: "32px",
-        background: `linear-gradient(135deg, ${theme.primaryLight} 0%, #FFFFFF 50%, ${theme.primaryLight} 100%)`,
-        borderRadius: 16,
+        padding: "24px",
         textAlign: "center",
-        border: `2px dashed ${theme.primary}`,
       }}>
         <Space direction="vertical" size={20} style={{ width: "100%" }}>
           <Space size={16}>
