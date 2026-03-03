@@ -10,9 +10,7 @@ import {
   PauseCircleOutlined, 
   PlayCircleOutlined, 
   SoundOutlined,
-  CodeOutlined,
-  RobotFilled,
-  CheckCircleFilled
+  CodeOutlined
 } from "@ant-design/icons";
 import ReactMarkdown from "react-markdown";
 
@@ -554,20 +552,14 @@ export default function HomePage() {
   return (
     <div style={{ padding: "32px 24px", maxWidth: 1400, margin: "0 auto" }}>
       {/* 简洁头部 */}
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <Space direction="vertical" size={16} align="center">
-          <RobotFilled style={{ fontSize: 48, color: colors.primary }} />
-          <Title level={2} style={{ margin: 0, color: colors.text, fontSize: 32, fontWeight: 600 }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <Space direction="vertical" size={12} align="center">
+          <Title level={2} style={{ margin: 0, color: colors.text, fontSize: 28, fontWeight: 600 }}>
             AI 编程提示词生成器
           </Title>
-          <Paragraph style={{ margin: 0, color: colors.textSecondary, fontSize: 16, maxWidth: 700 }}>
-            描述你的数据处理需求，AI 自动生成专业提示词，复制到 Cursor、Claude、ChatGPT 即可创建 Streamlit 应用
+          <Paragraph style={{ margin: 0, color: colors.textSecondary, fontSize: 14, maxWidth: 600 }}>
+            在下方填写你的需求，点击「复制完整提示词」后，粘贴到 Comate 中即可生成应用
           </Paragraph>
-          <Space size={8}>
-            <Tag icon={<CheckCircleFilled />} color="success">支持语音输入</Tag>
-            <Tag icon={<CheckCircleFilled />} color="processing">一键复制</Tag>
-            <Tag icon={<CheckCircleFilled />} color="warning">直接部署</Tag>
-          </Space>
         </Space>
       </div>
 
@@ -661,9 +653,9 @@ export default function HomePage() {
           >
             <div
               style={{
-                maxHeight: "600px",
+                maxHeight: "280px",
                 overflow: "auto",
-                padding: "20px 24px",
+                padding: "16px 20px",
                 backgroundColor: colors.cardBg,
               }}
             >
@@ -727,12 +719,12 @@ export default function HomePage() {
 - ...
 
 💡 提示：点击「语音输入」按钮，可以直接用语音描述你的需求`}
-              rows={20}
+              rows={8}
               style={{
                 fontSize: 14,
                 lineHeight: 1.6,
                 resize: "vertical",
-                minHeight: "440px",
+                minHeight: "180px",
                 borderRadius: 8,
               }}
             />
