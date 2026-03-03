@@ -1,10 +1,14 @@
+import json
 import os
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.deps import get_current_user, get_db
 from app.models.app import App
 from app.models.user import User
@@ -88,6 +92,65 @@ def create_app(
     db.commit()
     db.refresh(app)
     return _build_app_out(app, db)
+
+
+@router.get("/history/runs")
+def list_all_runs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    apps = db.query(App).all()
+    all_runs = []
+
+    for app in apps:
+        history_dir = Path(settings.upload_dir) / str(app.id) / "data" / "history"
+        if not history_dir.exists():
+            continue
+        for f in history_dir.glob("*.json"):
+            try:
+                record = json.loads(f.read_text(encoding="utf-8"))
+                if current_user.role != "admin" and record.get("username") != current_user.username:
+                    continue
+                all_runs.append({
+                    **record,
+                    "app_id": app.id,
+                    "app_name": app.name,
+                    "app_slug": app.slug,
+                })
+            except Exception:
+                continue
+
+    all_runs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return {"runs": all_runs}
+
+
+@router.get("/history/files")
+def list_all_files(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    apps = db.query(App).all()
+    all_files = []
+
+    for app in apps:
+        data_dir = Path(settings.upload_dir) / str(app.id) / "data"
+        if not data_dir.exists():
+            continue
+        for f in data_dir.rglob("*"):
+            if f.is_file() and not f.name.startswith("."):
+                stat = f.stat()
+                all_files.append({
+                    "app_id": app.id,
+                    "app_name": app.name,
+                    "app_slug": app.slug,
+                    "name": f.name,
+                    "path": str(f.relative_to(data_dir)),
+                    "size": stat.st_size,
+                    "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                })
+
+    all_files.sort(key=lambda x: x["modified_at"], reverse=True)
+    return {"files": all_files}
 
 
 @router.get("/{app_id}")
@@ -237,6 +300,80 @@ def delete_app(
 
     db.delete(app)
     db.commit()
+
+
+@router.get("/{app_id}/history")
+def get_history(
+    app_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app = db.query(App).filter(App.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="App 不存在")
+
+    history_dir = Path(settings.upload_dir) / str(app_id) / "data" / "history"
+    if not history_dir.exists():
+        return []
+
+    records = []
+    for f in history_dir.glob("*.json"):
+        try:
+            record = json.loads(f.read_text(encoding="utf-8"))
+            # 普通用户只能看自己的记录，管理员可看全部
+            if current_user.role != "admin" and record.get("username") != current_user.username:
+                continue
+            records.append(record)
+        except Exception:
+            continue
+
+    return sorted(records, key=lambda x: x.get("timestamp", ""), reverse=True)
+
+
+@router.get("/{app_id}/outputs/{run_id}/{filename}")
+def download_output(
+    app_id: int,
+    run_id: str,
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app = db.query(App).filter(App.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="App 不存在")
+
+    allowed_base = (Path(settings.upload_dir) / str(app_id) / "data" / "outputs").resolve()
+    file_path = (allowed_base / run_id / filename).resolve()
+
+    # 防止路径穿越
+    if not str(file_path).startswith(str(allowed_base)):
+        raise HTTPException(status_code=403, detail="访问被拒绝")
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    return FileResponse(path=file_path, filename=filename)
+
+
+@router.get("/{app_id}/files/{file_path:path}")
+def download_data_file(
+    app_id: int,
+    file_path: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    app = db.query(App).filter(App.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="App 不存在")
+
+    allowed_base = (Path(settings.upload_dir) / str(app_id) / "data").resolve()
+    target = (allowed_base / file_path).resolve()
+
+    if not str(target).startswith(str(allowed_base)):
+        raise HTTPException(status_code=403, detail="访问被拒绝")
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    return FileResponse(path=target, filename=target.name)
 
 
 @router.get("/{app_id}/logs")
