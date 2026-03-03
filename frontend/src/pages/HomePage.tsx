@@ -566,22 +566,7 @@ export default function HomePage() {
         borderRadius: 16,
         textAlign: "center",
         border: `2px dashed ${theme.primary}`,
-        position: 'relative'
       }}>
-        <div style={{
-          position: 'absolute',
-          top: -12,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#fff',
-          padding: '4px 16px',
-          borderRadius: 12,
-          border: `1px solid ${theme.primary}`,
-        }}>
-          <ArrowDownOutlined style={{ color: theme.primary }} />
-        <Text style={{ color: theme.primary, fontWeight: 600, marginLeft: 4 }}>下一步</Text>
-        </div>
-
         <Space direction="vertical" size={20} style={{ width: "100%" }}>
           <Space size={16}>
             <Button
