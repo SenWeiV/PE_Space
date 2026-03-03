@@ -357,7 +357,13 @@ declare global {
 }
 
 export default function HomePage() {
-  const [userRequirement, setUserRequirement] = useState<string>("");
+  const [userRequirement, setUserRequirement] = useState<string>(`工具名称：
+
+业务背景：
+
+输入：
+
+输出：`);
   const [copySuccess, setCopySuccess] = useState<boolean | null>(null);
   const [copyMessage, setCopyMessage] = useState<string>("");
   const [showPreview, setShowPreview] = useState<boolean>(false);
@@ -536,7 +542,7 @@ export default function HomePage() {
     <div style={{ padding: "24px 24px 100px", maxWidth: 1200, margin: "0 auto", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 顶部标题区 - 与App界面保持一致 */}
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 12px" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 8px" }}>
           AI 编程提示词生成器
         </h1>
         <div style={{
@@ -642,22 +648,7 @@ export default function HomePage() {
                 </span>
               </Space>
             }
-            extra={
-              <Button
-                type="link"
-                style={{ color: theme.primary }}
-                icon={<CopyOutlined />}
-                onClick={() => {
-                  navigator.clipboard.writeText(systemTemplate).then(() => {
-                    setCopySuccess(true);
-                    setCopyMessage("系统模板已复制！");
-                    setTimeout(() => setCopySuccess(null), 2000);
-                  });
-                }}
-              >
-                复制模板
-              </Button>
-            }
+
             styles={{ body: { padding: 0 } }}
             style={{ 
               borderRadius: 12, 
@@ -735,24 +726,10 @@ export default function HomePage() {
               border: `1px solid ${theme.border}`
             }}
           >
-            {/* 引导标签 */}
-            <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n输入：')}>
-                + 输入
-              </Tag>
-              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n输出：')}>
-                + 输出
-              </Tag>
-            </div>
-
             <TextArea
               value={userRequirement}
               onChange={(e) => setUserRequirement(e.target.value)}
-              placeholder={`请描述你的需求，例如：
-
-我想做一个 CSV 数据清洗工具，用于去除重复数据...
-
-你可以点击上方标签快速添加结构，或直接输入内容`}
+              placeholder={"请在此处描述你的具体需求..."}
               rows={10}
               style={{
                 fontSize: 15,
@@ -820,7 +797,6 @@ export default function HomePage() {
         <Space direction="vertical" size={20} style={{ width: "100%" }}>
           <Space size={16}>
             <Button
-              type="primary"
               size="large"
               icon={copySuccess ? <CheckCircleFilled /> : <CopyOutlined />}
               onClick={handleCopy}
@@ -830,9 +806,11 @@ export default function HomePage() {
                 fontSize: 16,
                 fontWeight: 600,
                 borderRadius: 8,
-                background: copySuccess ? theme.success : theme.primary,
-                boxShadow: '0 4px 16px rgba(22, 93, 255, 0.3)',
-                transition: 'all 0.3s'
+                background: copySuccess ? theme.success : '#000',
+                color: '#fff',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+                transition: 'all 0.3s',
+                border: 'none'
               }}
             >
               {copySuccess ? '已复制！' : '复制完整提示词'}
@@ -850,13 +828,11 @@ export default function HomePage() {
                 color: theme.textSecondary
               }}
             >
-              {showPreview ? "隐藏预览" : "展开预览"}
+              {showPreview ? "隐藏" : "预览"}
             </Button>
           </Space>
           
-          <Text type="secondary" style={{ fontSize: 13, color: theme.textTertiary }}>
-            复制提示词后，打开 Comate 粘贴即可生成 Streamlit 应用
-          </Text>
+
         </Space>
       </div>
 
