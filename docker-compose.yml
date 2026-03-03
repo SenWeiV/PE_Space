@@ -15,8 +15,8 @@ services:
     container_name: traefik
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "8080:8080"
+      - "8081:80"
+      - "8082:8080"
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/etc/traefik/dynamic   # 直接挂载宿主机目录，热加载生效
