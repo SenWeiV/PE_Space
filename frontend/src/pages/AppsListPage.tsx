@@ -180,20 +180,7 @@ export default function AppsListPage() {
         <div style={{ textAlign: "center", padding: 80 }}><Spin /></div>
       ) : apps.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 20px" }}>
-          <div style={{
-            width: 80, height: 80, margin: "0 auto 24px",
-            background: "#f0f0f0", borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40,
-          }}>📱</div>
-          <h3 style={{ fontSize: 20, fontWeight: 600, color: "#1a1a1a", margin: "0 0 8px" }}>暂无应用</h3>
-          <p style={{ color: "#666", marginBottom: 24 }}>上传你的第一个 App 吧</p>
-          <button
-            onClick={() => setUploadOpen(true)}
-            style={{
-              padding: "12px 24px", background: "#2c2c2c", color: "#fff",
-              border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer",
-            }}
-          >＋ 上传 App</button>
+          {/* 空状态 - 不显示任何内容 */}
         </div>
       ) : (
         <div style={{

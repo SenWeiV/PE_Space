@@ -20,8 +20,8 @@ import ReactMarkdown from "react-markdown";
 const { TextArea } = Input;
 const { Title, Paragraph, Text } = Typography;
 
-// 系统提示词模板
-const SYSTEM_PROMPT_TEMPLATE = `# 角色定位
+// 默认系统提示词模板
+const DEFAULT_SYSTEM_PROMPT_TEMPLATE = `# 角色定位
 你是一位专业的 Streamlit 应用开发工程师，专门为企业内部工具平台开发数据处理类 Web 应用。
 
 # 任务目标
@@ -106,12 +106,21 @@ export default function HomePage() {
   const [copyMessage, setCopyMessage] = useState<string>("");
   const [showPreview, setShowPreview] = useState<boolean>(false);
   const [copyError, setCopyError] = useState<boolean>(false);
+  const [systemTemplate, setSystemTemplate] = useState<string>(DEFAULT_SYSTEM_PROMPT_TEMPLATE);
   
   // 语音识别状态
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [speechSupported, setSpeechSupported] = useState<boolean>(true);
   const recognitionRef = useRef<any>(null);
+
+  // 从 localStorage 加载系统模板
+  useEffect(() => {
+    const saved = localStorage.getItem("system_prompt_template");
+    if (saved) {
+      setSystemTemplate(saved);
+    }
+  }, []);
 
   // 检查浏览器是否支持语音识别
   useEffect(() => {
@@ -206,9 +215,9 @@ export default function HomePage() {
   }, []);
 
   const generateFullPrompt = useCallback((): string => {
-    if (!userRequirement.trim()) return SYSTEM_PROMPT_TEMPLATE;
-    return `${SYSTEM_PROMPT_TEMPLATE}\n\n---\n\n# 用户具体需求\n\n${userRequirement.trim()}`;
-  }, [userRequirement]);
+    if (!userRequirement.trim()) return systemTemplate;
+    return `${systemTemplate}\n\n---\n\n# 用户具体需求\n\n${userRequirement.trim()}`;
+  }, [userRequirement, systemTemplate]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -393,7 +402,7 @@ export default function HomePage() {
                 style={{ color: theme.primary }}
                 icon={<CopyOutlined />}
                 onClick={() => {
-                  navigator.clipboard.writeText(SYSTEM_PROMPT_TEMPLATE).then(() => {
+                  navigator.clipboard.writeText(systemTemplate).then(() => {
                     setCopySuccess(true);
                     setCopyMessage("系统模板已复制！");
                     setTimeout(() => setCopySuccess(null), 2000);
@@ -421,7 +430,7 @@ export default function HomePage() {
               }}
             >
               <div className="markdown-body" style={{ fontSize: 14, lineHeight: 1.7, color: theme.textSecondary }}>
-                <ReactMarkdown>{SYSTEM_PROMPT_TEMPLATE}</ReactMarkdown>
+                <ReactMarkdown>{systemTemplate}</ReactMarkdown>
               </div>
             </div>
           </Card>
