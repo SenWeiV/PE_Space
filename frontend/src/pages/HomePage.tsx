@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Typography, Button, Input, Row, Col, Card, Space, Alert, Tag, Tooltip, Modal } from "antd";
+import { Typography, Button, Input, Row, Col, Card, Space, Alert, Tag, Modal, Badge, Progress } from "antd";
 import { 
   CopyOutlined, 
   ClearOutlined, 
@@ -10,329 +10,87 @@ import {
   PauseCircleOutlined, 
   PlayCircleOutlined, 
   SoundOutlined,
-  CodeOutlined
+  CodeOutlined,
+  CheckCircleFilled,
+  ThunderboltOutlined,
+  ArrowDownOutlined
 } from "@ant-design/icons";
 import ReactMarkdown from "react-markdown";
 
 const { TextArea } = Input;
 const { Title, Paragraph, Text } = Typography;
 
-// 系统提示词模板 - 优化版本
+// 系统提示词模板
 const SYSTEM_PROMPT_TEMPLATE = `# 角色定位
 你是一位专业的 Streamlit 应用开发工程师，专门为企业内部工具平台开发数据处理类 Web 应用。
 
 # 任务目标
-根据用户提供的具体需求，生成一个完整的、可直接部署到内部工具平台的 Streamlit 应用。该应用必须满足以下所有技术规范，确保能够无缝集成到平台并稳定运行。
-
-# 平台背景
-- 这是一个类似 HuggingFace Spaces 的内部工具托管平台
-- 用户上传包含 app.py 和 requirements.txt 的 zip 包即可部署
-- 平台自动注入 Dockerfile，无需手动提供
-- 应用需支持多人同时使用，数据隔离且可重复运行
-- 部署路径：/app，持久化数据目录：/app/data（已挂载到宿主机）
+根据用户提供的具体需求，生成一个完整的、可直接部署到内部工具平台的 Streamlit 应用。
 
 ---
 
-## 一、文件结构要求（严格限制）
+## 技术要求
 
-**只能输出两个文件，不允许任何其他文件：**
+### 文件结构
+- app.py - Streamlit 主入口
+- requirements.txt - Python 依赖
 
-1. **app.py** - Streamlit 应用主入口
-2. **requirements.txt** - Python 依赖列表
+### 禁止事项
+- 禁止生成 Dockerfile
+- 禁止使用 calamine，Excel 用 openpyxl
+- 禁止 Windows 专用包
+- 禁止硬编码 localhost
+- 禁止写死绝对路径
+- 禁止抛出红色 Traceback
 
-> ⚠️ 禁止输出：Dockerfile、配置文件、资源文件、目录结构说明等任何额外内容
-
----
-
-## 二、技术规范（必须严格遵守）
-
-### 2.1 禁止事项
-- ❌ 禁止生成 Dockerfile（平台自动注入）
-- ❌ 禁止使用 calamine 包，Excel 读写必须使用 openpyxl
-- ❌ 禁止使用任何 Windows 专用包（pywin32、win32com、pythoncom 等）
-- ❌ 禁止硬编码 localhost 或 127.0.0.1 的端口
-- ❌ 禁止写死绝对路径（如 /Users/xxx、C:\\\\ 等）
-- ❌ 禁止将异常直接抛到界面导致红色 Traceback
-- ❌ 禁止使用全局可变状态存储用户数据
-- ❌ 禁止在代码中包含测试代码、示例数据硬编码
-
-### 2.2 路径规范（强制执行）
-
+### 路径规范
 \`\`\`python
-from pathlib import Path
-
-# 当前脚本所在目录（临时文件、缓存）
-BASE_DIR = Path(__file__).parent
-
-# 持久化数据目录（跨部署保留，已挂载到宿主机）
-DATA_DIR = Path("/app/data")
-DATA_DIR.mkdir(parents=True, exist_ok=True)  # 必须确保目录存在
-\`\`\`
-
-### 2.3 错误处理规范（强制执行）
-所有可能出错的地方必须捕获异常，使用 st.error() 友好展示：
-
-\`\`\`python
-try:
-    # 可能出错的操作
-    df = pd.read_csv(uploaded_file)
-except pd.errors.EmptyDataError:
-    st.error("❌ 上传的文件为空，请检查文件内容")
-    st.stop()
-except pd.errors.ParserError as e:
-    st.error(f"❌ 文件解析失败：{str(e)}。请确保文件格式正确")
-    st.stop()
-except Exception as e:
-    st.error(f"❌ 处理出错：{str(e)}")
-    st.stop()
-\`\`\`
-
-### 2.4 并发与状态管理
-- 用户态数据：使用 st.session_state 存储
-- 持久化数据：写入 /app/data 目录，考虑并发安全
-- 写入操作必须原子化（先写临时文件，再重命名）
-
----
-
-## 三、Streamlit 代码规范
-
-### 3.1 页面配置（必须是第一行）
-
-\`\`\`python
-import streamlit as st
-
-st.set_page_config(
-    page_title="工具名称",
-    page_icon="📊",
-    layout="wide",  # 根据内容选择 wide 或 center
-    initial_sidebar_state="collapsed"
-)
-\`\`\`
-
-### 3.2 页面结构标准
-
-\`\`\`python
-# 1. 页面标题和说明
-st.title("📊 工具名称")
-st.caption("📝 工具用途说明：这个工具用于...")
-
-# 2. 输入区（文件上传、参数配置）
-with st.container():
-    st.subheader("📥 输入配置")
-    # ... 输入组件
-
-# 3. 运行按钮和逻辑
-if st.button("▶️ 开始处理", type="primary"):
-    with st.spinner("正在处理，请稍候..."):
-        # ... 处理逻辑
-        pass
-
-# 4. 输出区（结果展示、下载）
-if "result" in st.session_state:
-    st.subheader("📤 处理结果")
-    # ... 结果展示
-\`\`\`
-
-### 3.3 耗时操作处理
-- 所有耗时操作（文件读取、数据处理）必须用 st.spinner() 包裹
-- 批量处理必须显示 st.progress() 进度条
-
-### 3.4 用户交互规范
-- 输入校验：必填项检查、格式验证、范围检查
-- 友好提示：st.success()、st.info()、st.warning()
-- 空数据提示：处理结果为空时明确告知用户
-- 结果预览：数据表格使用 st.dataframe()，支持排序和搜索
-
----
-
-## 四、文件格式处理规范
-
-### 4.1 CSV 文件
-- 编码检测：优先 utf-8-sig，失败尝试 gbk、gb2312、latin1
-- 提供编码问题友好提示
-
-### 4.2 Excel 文件
-- 只使用 openpyxl 引擎
-- 读取：pd.read_excel(file, engine="openpyxl")
-- 写入：通过 BytesIO 生成下载内容
-
-\`\`\`python
-from io import BytesIO
-
-# Excel 写入示例
-output = BytesIO()
-with pd.ExcelWriter(output, engine="openpyxl") as writer:
-    df.to_excel(writer, index=False)
-output.seek(0)
-
-st.download_button(
-    label="⬇️ 下载 Excel 结果",
-    data=output,
-    file_name="result.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-\`\`\`
-
----
-
-## 五、代码质量标准
-
-### 5.1 代码结构
-
-\`\`\`python
-"""
-工具名称：xxx
-功能描述：xxx
-"""
-
-# ============ 导入区 ============
-import streamlit as st
-import pandas as pd
-from pathlib import Path
-from io import BytesIO
-import json
-from datetime import datetime
-from typing import Optional, Tuple, List, Dict, Any
-
-# ============ 常量定义 ============
 BASE_DIR = Path(__file__).parent
 DATA_DIR = Path("/app/data")
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-# ============ 工具函数 ============
-def read_csv_with_encoding(file) -> pd.DataFrame:
-    """自动检测编码读取 CSV"""
-    # ...
-
-def save_history(record: dict):
-    """原子化保存历史记录"""
-    # ...
-
-# ============ 核心处理函数 ============
-def process_data(
-    uploaded_file,
-    params: dict
-) -> Tuple[Optional[BytesIO], Optional[str], Optional[pd.DataFrame]]:
-    """
-    处理上传的文件
-    
-    Args:
-        uploaded_file: Streamlit 上传的文件对象
-        params: 处理参数字典
-    
-    Returns:
-        (result_bytes, log_text, preview_df)
-    """
-    # ...
-
-# ============ UI 区域 ============
-def render_input_section():
-    """渲染输入区"""
-    # ...
-
-def render_output_section(result, log, preview):
-    """渲染输出区"""
-    # ...
-
-# ============ 主程序 ============
-if __name__ == "__main__":
-    main()
 \`\`\`
 
-### 5.2 类型标注
-所有函数必须有类型标注，提高代码可维护性。
-
-### 5.3 注释规范
-- 模块级文档字符串说明工具用途
-- 函数级 docstring 说明参数和返回值
-- 关键逻辑行添加简短注释
-
----
-
-## 六、requirements.txt 规范
-
-\`\`\`
-streamlit>=1.30.0
-pandas>=2.0.0
-openpyxl>=3.1.0
-# 其他必要的第三方包（不要写标准库）
-\`\`\`
-
-- 必须包含 streamlit>=1.30.0
-- 版本使用 >= 而非 ==
-- 不写注释行（# 开头的行）
-- 不包含标准库（os、json、pathlib 等）
-
----
-
-## 七、输出格式（严格强制执行）
-
-你只能输出两个代码块，按顺序：
-
-\`\`\`python
-# app.py
-# [完整代码内容]
-\`\`\`
-
-\`\`\`
-# requirements.txt
-# [依赖列表]
-\`\`\`
-
-**绝对禁止：**
-- 输出解释性文字
-- 输出文件树结构
-- 输出第三个代码块
-- 输出 Docker 相关配置
-- 输出部署说明
-
----
-
-## 八、验证清单（生成前自检）
-
-生成代码前，请确保：
-- [ ] app.py 第一行是 st.set_page_config
-- [ ] 使用了 BASE_DIR = Path(__file__).parent
-- [ ] 使用了 DATA_DIR = Path("/app/data") 且 mkdir
-- [ ] 所有异常都有 try-except 包裹和 st.error() 提示
-- [ ] 没有使用 calamine、pywin32 等禁用包
-- [ ] Excel 操作使用 openpyxl 引擎
-- [ ] 没有硬编码 localhost/127.0.0.1
-- [ ] 没有写死绝对路径
-- [ ] 耗时操作有 st.spinner
-- [ ] 批量操作有 st.progress
-- [ ] 结果通过 st.download_button 提供下载
-- [ ] 函数有类型标注
-- [ ] requirements.txt 符合规范
-`;
+### 错误处理
+所有异常必须捕获并用 st.error() 展示`;
 
 // 示例需求
-const EXAMPLE_REQUIREMENT = `工具名称：CSV 数据清洗与去重工具
+const EXAMPLE_REQUIREMENT = `工具名称：CSV 数据清洗工具
 
-这个工具要解决什么问题（业务背景 + 目标）：
-日常工作中经常需要处理从各系统导出的原始 CSV 数据，存在格式不统一、空值、重复记录等问题。本工具用于快速清洗数据，统一格式，去除重复，方便后续分析。
+业务背景：
+日常需要处理各系统导出的 CSV 数据，存在格式不统一、空值、重复等问题。
 
-输入（逐条列出）：
-- 文件上传：CSV 文件（单文件，必填，最大 50MB），支持 utf-8 和 gbk 编码自动检测
-- 参数：
-  - 去重键：字符串，默认"id"，用于判断重复记录的列名
-  - 保留策略：枚举（first/last），默认"first"，重复时保留第一条还是最后一条
-  - 去除空值行：布尔值，默认 True
-  - 日期格式标准化：布尔值，默认 True，将各种日期格式统一为 YYYY-MM-DD
+输入：
+- CSV 文件（单文件，必填）
+- 去重键：默认"id"
+- 保留策略：first/last
+- 去除空值行：是/否
 
-点击【运行】后的处理逻辑（用步骤描述清楚，含必要的规则/边界条件）：
-1. 读取上传的 CSV 文件，自动检测编码（优先 utf-8-sig，失败尝试 gbk）
-2. 检查必要的列是否存在（去重键），不存在则报错提示
-3. 如果开启"去除空值行"，删除所有字段都为空的行
-4. 如果开启"日期格式标准化"，自动识别日期列并统一格式
-5. 按去重键去重，根据保留策略保留 first 或 last
-6. 生成处理报告：原行数、去重后行数、删除行数、处理时间
+处理逻辑：
+1. 自动检测编码（utf-8/gbk）
+2. 按指定键去重
+3. 删除空值行
+4. 生成处理报告
 
-输出（逐条列出）：
-- 结果文件：清洗后的 CSV 文件，命名规则：{原文件名}_cleaned_{时间戳}.csv
-- 页面展示：处理摘要（原行数、去重后行数、删除行数）、前 10 行预览表格
-- 运行日志：在页面文本区展示详细处理日志（编码检测、列检查、各步骤耗时）
-- 历史记录持久化：保存到 /app/data/cleaner_history.json，记录每次处理的文件名、时间、参数、摘要，保留最近 100 条，页面底部展示历史记录列表`;
+输出：
+- 清洗后的 CSV 文件
+- 处理摘要统计
+- 数据预览表格`;
+
+// 科技蓝配色
+const theme = {
+  primary: '#165DFF',
+  primaryLight: '#E8F3FF',
+  primaryHover: '#4080FF',
+  success: '#00B42A',
+  warning: '#FF7D00',
+  textPrimary: '#1D2129',
+  textSecondary: '#4E5969',
+  textTertiary: '#86909C',
+  border: '#E5E6EB',
+  bg: '#F2F3F5',
+  cardBg: '#FFFFFF',
+  shadow: '0 4px 20px rgba(22, 93, 255, 0.08)',
+  shadowHover: '0 8px 32px rgba(22, 93, 255, 0.12)',
+};
 
 // Web Speech API 类型声明
 declare global {
@@ -341,20 +99,6 @@ declare global {
     SpeechRecognition: any;
   }
 }
-
-// 颜色配置 - 简洁现代风格
-const colors = {
-  primary: '#1677ff',
-  primaryLight: '#e6f4ff',
-  success: '#52c41a',
-  warning: '#faad14',
-  text: '#262626',
-  textSecondary: '#595959',
-  textTertiary: '#8c8c8c',
-  border: '#d9d9d9',
-  bg: '#f5f5f5',
-  cardBg: '#fafafa',
-};
 
 export default function HomePage() {
   const [userRequirement, setUserRequirement] = useState<string>("");
@@ -390,19 +134,13 @@ export default function HomePage() {
 
     recognition.onresult = (event: any) => {
       let finalTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
+          finalTranscript += event.results[i][0].transcript;
         }
       }
-
       if (finalTranscript) {
-        setUserRequirement(prev => {
-          const newValue = prev + (prev && !prev.endsWith(' ') ? ' ' : '') + finalTranscript;
-          return newValue;
-        });
+        setUserRequirement(prev => prev + (prev && !prev.endsWith(' ') ? ' ' : '') + finalTranscript);
       }
     };
 
@@ -418,26 +156,19 @@ export default function HomePage() {
 
     recognition.onend = () => {
       if (isRecording && !isPaused) {
-        try {
-          recognition.start();
-        } catch (e) {
-          setIsRecording(false);
-        }
+        try { recognition.start(); } catch (e) { setIsRecording(false); }
       }
     };
 
     return recognition;
   }, [isRecording, isPaused]);
 
-  // 开始录音
   const startRecording = useCallback(() => {
     if (!speechSupported) {
-      setCopySuccess(false);
       setCopyMessage('当前浏览器不支持语音识别功能，请使用 Chrome、Edge 或 Safari');
       setCopyError(true);
       return;
     }
-
     const recognition = initSpeechRecognition();
     if (recognition) {
       recognitionRef.current = recognition;
@@ -445,14 +176,10 @@ export default function HomePage() {
         recognition.start();
         setIsRecording(true);
         setIsPaused(false);
-        setCopySuccess(null);
-      } catch (e) {
-        console.error('启动语音识别失败:', e);
-      }
+      } catch (e) {}
     }
   }, [speechSupported, initSpeechRecognition]);
 
-  // 暂停录音
   const pauseRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
       recognitionRef.current.stop();
@@ -460,19 +187,15 @@ export default function HomePage() {
     }
   }, [isRecording]);
 
-  // 继续录音
   const resumeRecording = useCallback(() => {
     if (recognitionRef.current && isPaused) {
       try {
         recognitionRef.current.start();
         setIsPaused(false);
-      } catch (e) {
-        console.error('恢复语音识别失败:', e);
-      }
+      } catch (e) {}
     }
   }, [isPaused]);
 
-  // 停止录音
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
@@ -482,23 +205,18 @@ export default function HomePage() {
     setIsPaused(false);
   }, []);
 
-  // 生成完整提示词
   const generateFullPrompt = useCallback((): string => {
-    if (!userRequirement.trim()) {
-      return SYSTEM_PROMPT_TEMPLATE;
-    }
+    if (!userRequirement.trim()) return SYSTEM_PROMPT_TEMPLATE;
     return `${SYSTEM_PROMPT_TEMPLATE}\n\n---\n\n# 用户具体需求\n\n${userRequirement.trim()}`;
   }, [userRequirement]);
 
-  // 复制到剪贴板
   const handleCopy = useCallback(async () => {
     try {
       const fullPrompt = generateFullPrompt();
-      
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(fullPrompt);
         setCopySuccess(true);
-        setCopyMessage("已复制到剪贴板，可直接粘贴到 AI 编程软件使用");
+        setCopyMessage("已复制到剪贴板！");
         setCopyError(false);
       } else {
         const textArea = document.createElement("textarea");
@@ -508,23 +226,17 @@ export default function HomePage() {
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-        
         const successful = document.execCommand("copy");
         document.body.removeChild(textArea);
-        
         if (successful) {
           setCopySuccess(true);
-          setCopyMessage("已复制到剪贴板，可直接粘贴到 AI 编程软件使用");
+          setCopyMessage("已复制到剪贴板！");
           setCopyError(false);
         } else {
           throw new Error("Copy failed");
         }
       }
-      
-      setTimeout(() => {
-        setCopySuccess(null);
-        setCopyMessage("");
-      }, 3000);
+      setTimeout(() => { setCopySuccess(null); setCopyMessage(""); }, 3000);
     } catch (error) {
       setCopySuccess(false);
       setCopyMessage("当前环境无法自动复制，请在下方预览区手动复制");
@@ -533,7 +245,6 @@ export default function HomePage() {
     }
   }, [generateFullPrompt]);
 
-  // 清空需求
   const handleClear = useCallback(() => {
     setUserRequirement("");
     setCopySuccess(null);
@@ -541,7 +252,6 @@ export default function HomePage() {
     setCopyError(false);
   }, []);
 
-  // 填入示例
   const handleFillExample = useCallback(() => {
     setUserRequirement(EXAMPLE_REQUIREMENT);
     setCopySuccess(null);
@@ -549,18 +259,52 @@ export default function HomePage() {
     setCopyError(false);
   }, []);
 
+  // 字数统计颜色
+  const getCharCountColor = (count: number) => {
+    if (count === 0) return theme.textTertiary;
+    if (count < 50) return theme.warning;
+    if (count < 500) return theme.success;
+    return theme.primary;
+  };
+
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 1400, margin: "0 auto" }}>
-      {/* 简洁头部 */}
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <Space direction="vertical" size={12} align="center">
-          <Title level={2} style={{ margin: 0, color: colors.text, fontSize: 28, fontWeight: 600 }}>
-            AI 编程提示词生成器
-          </Title>
-          <Paragraph style={{ margin: 0, color: colors.textSecondary, fontSize: 14, maxWidth: 600 }}>
-            在下方填写你的需求，点击「复制完整提示词」后，粘贴到 Comate 中即可生成应用
-          </Paragraph>
-        </Space>
+    <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* 顶部标题区 - 大量留白 */}
+      <div style={{ textAlign: "center", padding: "40px 0 32px" }}>
+        <Title level={2} style={{ 
+          margin: 0, 
+          color: theme.textPrimary, 
+          fontSize: 28, 
+          fontWeight: 700,
+          letterSpacing: '-0.5px'
+        }}>
+          AI 编程提示词生成器
+        </Title>
+        
+        {/* 重点提示文字 - 突出显示 */}
+        <div style={{
+          marginTop: 20,
+          padding: "16px 32px",
+          background: `linear-gradient(135deg, ${theme.primaryLight} 0%, #FFFFFF 100%)`,
+          border: `2px solid ${theme.primary}`,
+          borderRadius: 12,
+          display: "inline-block",
+          boxShadow: '0 4px 16px rgba(22, 93, 255, 0.15)',
+        }}>
+          <Space size={12} align="center">
+            <ThunderboltOutlined style={{ fontSize: 24, color: theme.primary }} />
+            <Text style={{ 
+              fontSize: 16, 
+              color: theme.textPrimary, 
+              fontWeight: 500,
+              margin: 0 
+            }}>
+              在下方填写你的需求，点击
+              <Tag color="blue" style={{ margin: '0 4px', fontWeight: 600 }}>复制完整提示词</Tag>
+              后，粘贴到 Comate 中即可生成应用
+            </Text>
+          </Space>
+        </div>
       </div>
 
       {/* 提示消息 */}
@@ -571,18 +315,22 @@ export default function HomePage() {
           showIcon
           closable
           onClose={() => setCopySuccess(null)}
-          style={{ marginBottom: 24, borderRadius: 8 }}
+          style={{ 
+            marginBottom: 20, 
+            borderRadius: 8,
+            animation: 'slideDown 0.3s ease'
+          }}
         />
       )}
 
       {/* 语音录制状态条 */}
       {isRecording && (
         <div style={{ 
-          marginBottom: 24, 
-          padding: '12px 16px', 
-          backgroundColor: isPaused ? '#fffbe6' : '#f6ffed',
+          marginBottom: 20, 
+          padding: '12px 20px', 
+          backgroundColor: isPaused ? '#FFF7E8' : '#E8FFEA',
           borderRadius: 8,
-          border: `1px solid ${isPaused ? '#ffe58f' : '#b7eb8f'}`,
+          border: `1px solid ${isPaused ? '#FFCF8B' : '#86EFAC'}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between"
@@ -593,10 +341,10 @@ export default function HomePage() {
               width: 10, 
               height: 10, 
               borderRadius: '50%',
-              backgroundColor: isPaused ? colors.warning : colors.success,
+              backgroundColor: isPaused ? theme.warning : theme.success,
               animation: isPaused ? 'none' : 'pulse 2s infinite'
             }} />
-            <Text strong style={{ color: isPaused ? '#d48806' : '#389e0d' }}>
+            <Text strong style={{ color: isPaused ? '#D25F00' : '#00B42A', fontSize: 14 }}>
               {isPaused ? '语音识别已暂停' : '正在语音识别中...说出你的需求'}
             </Text>
           </Space>
@@ -614,12 +362,6 @@ export default function HomePage() {
               结束
             </Button>
           </Space>
-          <style>{`
-            @keyframes pulse {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.4; }
-            }
-          `}</style>
         </div>
       )}
 
@@ -628,14 +370,27 @@ export default function HomePage() {
         <Col xs={24} lg={12}>
           <Card
             title={
-              <Space size={12}>
-                <FileTextOutlined style={{ fontSize: 20, color: colors.success }} />
-                <span style={{ fontSize: 16, fontWeight: 600 }}>系统提示词模板</span>
+              <Space size={10}>
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: theme.primaryLight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <FileTextOutlined style={{ fontSize: 16, color: theme.primary }} />
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 600, color: theme.textPrimary }}>
+                  系统提示词模板
+                </span>
               </Space>
             }
             extra={
               <Button
                 type="link"
+                style={{ color: theme.primary }}
                 icon={<CopyOutlined />}
                 onClick={() => {
                   navigator.clipboard.writeText(SYSTEM_PROMPT_TEMPLATE).then(() => {
@@ -649,146 +404,223 @@ export default function HomePage() {
               </Button>
             }
             styles={{ body: { padding: 0 } }}
-            style={{ borderRadius: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02)' }}
+            style={{ 
+              borderRadius: 12, 
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              overflow: 'hidden'
+            }}
+            bodyStyle={{ padding: 0 }}
           >
             <div
               style={{
-                maxHeight: "280px",
+                maxHeight: "320px",
                 overflow: "auto",
-                padding: "16px 20px",
-                backgroundColor: colors.cardBg,
+                padding: "20px",
+                backgroundColor: '#FAFBFC',
               }}
             >
-              <div className="markdown-body" style={{ fontSize: 14, lineHeight: 1.7, color: colors.text }}>
+              <div className="markdown-body" style={{ fontSize: 14, lineHeight: 1.7, color: theme.textSecondary }}>
                 <ReactMarkdown>{SYSTEM_PROMPT_TEMPLATE}</ReactMarkdown>
               </div>
             </div>
           </Card>
         </Col>
 
-        {/* 右侧：需求填写区 */}
+        {/* 右侧：我的需求 */}
         <Col xs={24} lg={12}>
           <Card
             title={
-              <Space size={12}>
-                <CodeOutlined style={{ fontSize: 20, color: colors.primary }} />
-                <span style={{ fontSize: 16, fontWeight: 600 }}>我的需求</span>
+              <Space size={10}>
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: theme.primaryLight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <CodeOutlined style={{ fontSize: 16, color: theme.primary }} />
+                </div>
+                <span style={{ fontSize: 16, fontWeight: 600, color: theme.textPrimary }}>
+                  我的需求
+                </span>
               </Space>
             }
             extra={
               <Space>
                 {!isRecording && speechSupported && (
                   <Button 
-                    type="primary" 
+                    size="small"
                     icon={<SoundOutlined />}
                     onClick={startRecording}
+                    style={{ borderColor: theme.primary, color: theme.primary }}
                   >
                     语音输入
                   </Button>
                 )}
-                <Button icon={<ClearOutlined />} onClick={handleClear}>
+                <Button size="small" icon={<ClearOutlined />} onClick={handleClear}>
                   清空
                 </Button>
-                <Button type="primary" ghost onClick={handleFillExample}>
+                <Button 
+                  size="small" 
+                  type="primary" 
+                  ghost 
+                  onClick={handleFillExample}
+                  style={{ borderColor: theme.primary, color: theme.primary }}
+                >
                   填入示例
                 </Button>
               </Space>
             }
-            style={{ borderRadius: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02)' }}
+            style={{ 
+              borderRadius: 12, 
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`
+            }}
           >
+            {/* 引导标签 */}
+            <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n工具名称：')}>
+                + 工具名称
+              </Tag>
+              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n业务背景：')}>
+                + 业务背景
+              </Tag>
+              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n输入：')}>
+                + 输入
+              </Tag>
+              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n处理逻辑：')}>
+                + 处理逻辑
+              </Tag>
+              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n输出：')}>
+                + 输出
+              </Tag>
+            </div>
+
             <TextArea
               value={userRequirement}
               onChange={(e) => setUserRequirement(e.target.value)}
-              placeholder={`请在这里填写你的具体需求...
+              placeholder={`请描述你的需求，例如：
 
-可以按照以下结构：
+我想做一个 CSV 数据清洗工具，用于去除重复数据...
 
-工具名称：
-
-这个工具要解决什么问题（业务背景 + 目标）：
-
-输入（逐条列出）：
-- 文件上传：...
-- 参数：...
-
-点击【运行】后的处理逻辑：
-1. ...
-2. ...
-
-输出（逐条列出）：
-- ...
-
-💡 提示：点击「语音输入」按钮，可以直接用语音描述你的需求`}
-              rows={8}
+你可以点击上方标签快速添加结构，或直接输入内容`}
+              rows={10}
               style={{
-                fontSize: 14,
-                lineHeight: 1.6,
+                fontSize: 15,
+                lineHeight: 1.7,
                 resize: "vertical",
-                minHeight: "180px",
+                minHeight: "200px",
                 borderRadius: 8,
+                borderColor: userRequirement.length > 0 ? theme.primary : theme.border,
               }}
             />
             
+            {/* 字数统计与进度 */}
             <div style={{ 
               display: "flex", 
               justifyContent: "space-between",
               alignItems: "center",
-              marginTop: 12
+              marginTop: 12,
+              paddingTop: 12,
+              borderTop: `1px solid ${theme.border}`
             }}>
-              <Text type="secondary" style={{ fontSize: 13 }}>
+              <Space>
                 {isRecording && !isPaused && (
-                  <span style={{ color: colors.success, marginRight: 8 }}>🎤 正在监听...</span>
+                  <Badge status="processing" text={<span style={{ color: theme.success }}>正在监听...</span>} />
                 )}
-                支持语音输入
-              </Text>
-              <Text type="secondary" style={{ fontSize: 13 }}>
-                {userRequirement.length} 字符
-              </Text>
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  {userRequirement.length === 0 ? '开始输入你的需求' : 
+                   userRequirement.length < 50 ? '建议多写一些细节' : 
+                   userRequirement.length < 500 ? '内容不错，继续完善' : '内容很详细！'}
+                </Text>
+              </Space>
+              <Space>
+                <Progress 
+                  percent={Math.min((userRequirement.length / 500) * 100, 100)} 
+                  size="small" 
+                  strokeColor={getCharCountColor(userRequirement.length)}
+                  showInfo={false}
+                  style={{ width: 60 }}
+                />
+                <Text style={{ 
+                  fontSize: 14, 
+                  fontWeight: 600,
+                  color: getCharCountColor(userRequirement.length)
+                }}>
+                  {userRequirement.length} 字
+                </Text>
+              </Space>
             </div>
           </Card>
         </Col>
       </Row>
 
-      {/* 底部操作区 */}
+      {/* 底部操作区 - 突出显示 */}
       <div style={{ 
         marginTop: 32, 
-        padding: "28px",
-        backgroundColor: colors.bg,
-        borderRadius: 12,
-        textAlign: "center"
+        padding: "32px",
+        background: `linear-gradient(135deg, ${theme.primaryLight} 0%, #FFFFFF 50%, ${theme.primaryLight} 100%)`,
+        borderRadius: 16,
+        textAlign: "center",
+        border: `2px dashed ${theme.primary}`,
+        position: 'relative'
       }}>
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <div style={{
+          position: 'absolute',
+          top: -12,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#fff',
+          padding: '4px 16px',
+          borderRadius: 12,
+          border: `1px solid ${theme.primary}`,
+        }}>
+          <ArrowDownOutlined style={{ color: theme.primary }} />
+        <Text style={{ color: theme.primary, fontWeight: 600, marginLeft: 4 }}>下一步</Text>
+        </div>
+
+        <Space direction="vertical" size={20} style={{ width: "100%" }}>
           <Space size={16}>
             <Button
               type="primary"
               size="large"
-              icon={<CopyOutlined />}
+              icon={copySuccess ? <CheckCircleFilled /> : <CopyOutlined />}
               onClick={handleCopy}
               style={{ 
-                minWidth: 180, 
-                height: 44, 
-                fontSize: 15,
-                borderRadius: 8
+                minWidth: 200, 
+                height: 48, 
+                fontSize: 16,
+                fontWeight: 600,
+                borderRadius: 8,
+                background: copySuccess ? theme.success : theme.primary,
+                boxShadow: '0 4px 16px rgba(22, 93, 255, 0.3)',
+                transition: 'all 0.3s'
               }}
             >
-              复制完整提示词
+              {copySuccess ? '已复制！' : '复制完整提示词'}
             </Button>
             <Button
               size="large"
               icon={showPreview ? <EyeInvisibleOutlined /> : <EyeOutlined />}
               onClick={() => setShowPreview(!showPreview)}
               style={{ 
-                height: 44, 
+                height: 48, 
                 fontSize: 15,
-                borderRadius: 8
+                borderRadius: 8,
+                minWidth: 120,
+                borderColor: theme.border,
+                color: theme.textSecondary
               }}
             >
               {showPreview ? "隐藏预览" : "展开预览"}
             </Button>
           </Space>
           
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            复制后可直接粘贴到 Cursor、Claude、ChatGPT 等 AI 编程软件使用
+          <Text type="secondary" style={{ fontSize: 13, color: theme.textTertiary }}>
+            复制提示词后，打开 Comate 粘贴即可生成 Streamlit 应用
           </Text>
         </Space>
       </div>
@@ -797,7 +629,7 @@ export default function HomePage() {
       <Modal
         title={
           <Space>
-            <EyeOutlined />
+            <EyeOutlined style={{ color: theme.primary }} />
             <span style={{ fontWeight: 600 }}>完整提示词预览</span>
           </Space>
         }
@@ -816,6 +648,7 @@ export default function HomePage() {
                 handleCopy();
                 setShowPreview(false);
               }}
+              style={{ background: theme.primary }}
             >
               复制并关闭
             </Button>
@@ -829,12 +662,23 @@ export default function HomePage() {
           style={{
             fontFamily: "monospace",
             fontSize: 13,
-            backgroundColor: colors.cardBg,
+            backgroundColor: '#FAFBFC',
             borderRadius: 8,
             marginTop: 8
           }}
         />
       </Modal>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
