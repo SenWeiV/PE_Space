@@ -17,11 +17,10 @@ export default function MainLayout() {
     { path: "/apps", icon: "📱", label: "App" },
   ];
 
-  // 管理子菜单
-  const adminSubItems = [
+  // 管理后台菜单 - 只保留两个功能
+  const adminMenuItems = [
     { path: "/admin/users", icon: "👤", label: "用户管理" },
-    { path: "/admin/prompts", icon: "📝", label: "提示词管理" },
-    { path: "/admin/template", icon: "📋", label: "模板管理" },
+    { path: "/admin/template", icon: "📋", label: "系统模板管理" },
   ];
 
   return (
@@ -80,7 +79,7 @@ export default function MainLayout() {
             </div>
           ))}
 
-          {/* 管理子菜单 */}
+          {/* 管理后台菜单 - 简化为两个选项 */}
           {isAdmin && (
             <>
               <div
@@ -95,7 +94,7 @@ export default function MainLayout() {
                 <span style={{ fontSize: 10 }}>▪</span>
                 <span>管理后台</span>
               </div>
-              {adminSubItems.map((item) => {
+              {adminMenuItems.map((item) => {
                 const isSubActive = location.pathname === item.path;
                 return (
                   <div

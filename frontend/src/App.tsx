@@ -6,7 +6,6 @@ import HomePage from "@/pages/HomePage";
 import AppsListPage from "@/pages/AppsListPage";
 import AppDetailPage from "@/pages/AppDetailPage";
 import UserManagePage from "@/pages/admin/UserManagePage";
-import PromptManagePage from "@/pages/admin/PromptManagePage";
 import TemplateManagePage from "@/pages/admin/TemplateManagePage";
 
 export default function App() {
@@ -27,28 +26,12 @@ export default function App() {
           <Route path="apps" element={<AppsListPage />} />
           <Route path="apps/:appId" element={<AppDetailPage />} />
 
-          {/* 管理员路由 */}
-          <Route
-            path="admin"
-            element={
-              <AuthGuard requireAdmin>
-                <UserManagePage />
-              </AuthGuard>
-            }
-          />
+          {/* 管理员路由 - 只保留用户管理和系统模板管理 */}
           <Route
             path="admin/users"
             element={
               <AuthGuard requireAdmin>
                 <UserManagePage />
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="admin/prompts"
-            element={
-              <AuthGuard requireAdmin>
-                <PromptManagePage />
               </AuthGuard>
             }
           />
