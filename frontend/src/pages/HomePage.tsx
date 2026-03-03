@@ -278,40 +278,14 @@ export default function HomePage() {
 
   return (
     <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-      {/* 顶部标题区 - 大量留白 */}
-      <div style={{ padding: "40px 0 32px" }}>
-        <h1 style={{ 
-          fontSize: 28, 
-          fontWeight: 700, 
-          color: "#1a1a1a", 
-          letterSpacing: "-0.5px", 
-          margin: "0 0 20px"
-        }}>
+      {/* 顶部标题区 - 与App界面保持一致 */}
+      <div style={{ marginBottom: 32 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 8px" }}>
           AI 编程提示词生成器
         </h1>
-        
-        {/* 重点提示文字 - 突出显示 */}
-        <div style={{
-          padding: "16px 24px",
-          background: `linear-gradient(135deg, ${theme.primaryLight} 0%, #FFFFFF 100%)`,
-          border: `2px solid ${theme.primary}`,
-          borderRadius: 12,
-          boxShadow: '0 4px 16px rgba(22, 93, 255, 0.15)',
-        }}>
-          <Space size={12} align="center">
-            <ThunderboltOutlined style={{ fontSize: 24, color: theme.primary }} />
-            <Text style={{ 
-              fontSize: 16, 
-              color: theme.textPrimary, 
-              fontWeight: 500,
-              margin: 0 
-            }}>
-              在下方填写你的需求，点击
-              <Tag color="blue" style={{ margin: '0 4px', fontWeight: 600 }}>复制完整提示词</Tag>
-              后，粘贴到 Comate 中即可生成应用
-            </Text>
-          </Space>
-        </div>
+        <p style={{ fontSize: 14, color: "#666", margin: 0 }}>
+          在下方填写需求，点击复制后粘贴到 Comate 即可生成应用
+        </p>
       </div>
 
       {/* 提示消息 */}
@@ -489,17 +463,8 @@ export default function HomePage() {
           >
             {/* 引导标签 */}
             <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n工具名称：')}>
-                + 工具名称
-              </Tag>
-              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n业务背景：')}>
-                + 业务背景
-              </Tag>
               <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n输入：')}>
                 + 输入
-              </Tag>
-              <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n处理逻辑：')}>
-                + 处理逻辑
               </Tag>
               <Tag color="default" style={{ cursor: 'pointer' }} onClick={() => setUserRequirement(v => v + '\n输出：')}>
                 + 输出
