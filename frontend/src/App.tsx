@@ -8,7 +8,6 @@ import AppDetailPage from "@/pages/AppDetailPage";
 import HistoryPage from "@/pages/HistoryPage";
 import UserManagePage from "@/pages/admin/UserManagePage";
 import TemplateManagePage from "@/pages/admin/TemplateManagePage";
-import PromptManagePage from "@/pages/admin/PromptManagePage";
 
 export default function App() {
   return (
@@ -27,7 +26,14 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="apps" element={<AppsListPage />} />
           <Route path="apps/:appId" element={<AppDetailPage />} />
-          <Route path="history" element={<HistoryPage />} />
+          <Route
+            path="history"
+            element={
+              <AuthGuard forbidAnnotator>
+                <HistoryPage />
+              </AuthGuard>
+            }
+          />
 
           {/* 管理员路由 */}
           <Route
@@ -43,14 +49,6 @@ export default function App() {
             element={
               <AuthGuard requireAdmin>
                 <TemplateManagePage />
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="admin/prompts"
-            element={
-              <AuthGuard requireAdmin>
-                <PromptManagePage />
               </AuthGuard>
             }
           />

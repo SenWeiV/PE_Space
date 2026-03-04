@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -36,6 +37,16 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在或已禁用",
         )
+
+    # 检查账号是否已过期
+    if user.expires_at is not None:
+        now = datetime.utcnow()
+        if user.expires_at < now:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="账号已过期，请联系管理员",
+            )
+
     return user
 
 

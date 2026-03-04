@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import get_db, require_admin
 from app.models.user import User
-from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.schemas.user import UserCreate, UserOut, UserUpdate, BatchUserCreate
 from app.utils.security import hash_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -31,11 +31,39 @@ def create_user(
         email=body.email,
         hashed_pw=hash_password(body.password),
         role=body.role,
+        expires_at=body.expires_at,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/users/batch", response_model=list[UserOut], status_code=status.HTTP_201_CREATED)
+def batch_create_users(
+    body: BatchUserCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    created = []
+    hashed_pw = hash_password(body.password)
+    for i in range(body.count):
+        idx = body.start_index + i
+        username = f"{body.project_name}_{idx:03d}"
+        if db.query(User).filter(User.username == username).first():
+            raise HTTPException(status_code=400, detail=f"用户名 {username} 已存在")
+        user = User(
+            username=username,
+            hashed_pw=hashed_pw,
+            role="annotator",
+            expires_at=body.expires_at,
+        )
+        db.add(user)
+        created.append(user)
+    db.commit()
+    for u in created:
+        db.refresh(u)
+    return created
 
 
 @router.put("/users/{user_id}", response_model=UserOut)

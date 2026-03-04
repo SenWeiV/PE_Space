@@ -7,7 +7,6 @@ import {
   HistoryOutlined,
   UserOutlined,
   FileTextOutlined,
-  SettingOutlined,
 } from "@ant-design/icons";
 
 export default function MainLayout() {
@@ -19,18 +18,25 @@ export default function MainLayout() {
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   const isAdmin = user?.role === "admin";
+  const isAnnotator = user?.role === "annotator";
 
+  // 标注账号只显示首页 + 应用管理
   const navItems = [
     { path: "/", icon: <HomeOutlined />, label: "首页" },
     { path: "/apps", icon: <AppstoreOutlined />, label: "应用管理" },
-    { path: "/history", icon: <HistoryOutlined />, label: "历史记录" },
+    ...(!isAnnotator ? [{ path: "/history", icon: <HistoryOutlined />, label: "历史记录" }] : []),
   ];
 
   const adminMenuItems = [
     { path: "/admin/users", icon: <UserOutlined />, label: "用户管理" },
-    { path: "/admin/template", icon: <FileTextOutlined />, label: "系统模板管理" },
-    { path: "/admin/prompts", icon: <FileTextOutlined />, label: "Prompt 管理" },
+    { path: "/admin/template", icon: <FileTextOutlined />, label: "代码规范Prompt" },
   ];
+
+  const roleLabel: Record<string, string> = {
+    admin: "管理员",
+    user: "普通用户",
+    annotator: "标注账号",
+  };
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#fafafa" }}>
@@ -60,79 +66,46 @@ export default function MainLayout() {
         </div>
 
         {/* 导航 */}
-        <nav style={{ flex: 1, padding: "16px 12px", overflowY: "auto" }}>
-          {/* 普通导航项 */}
-          {navItems.map((item) => (
-            <div
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "12px 16px", marginBottom: 4,
-                borderRadius: 8, fontSize: 14, fontWeight: isActive(item.path) ? 600 : 500,
-                color: isActive(item.path) ? "#1a1a1a" : "#666",
-                background: isActive(item.path) ? "#f0f0f0" : "transparent",
-                cursor: "pointer", transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive(item.path))
-                  (e.currentTarget as HTMLElement).style.background = "#f7f7f7";
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive(item.path))
-                  (e.currentTarget as HTMLElement).style.background = "transparent";
-              }}
-            >
-              <span style={{ fontSize: 18, display: "flex", alignItems: "center", color: isActive(item.path) ? "#165DFF" : "#86909C" }}>{item.icon}</span>
-              <span>{item.label}</span>
-            </div>
-          ))}
-
-          {/* 管理后台菜单 */}
-          {isAdmin && (
-            <>
+        <nav style={{ flex: 1, padding: "16px 12px", overflow: "hidden" }}>
+          {[
+            ...navItems,
+            ...(isAdmin ? [null, ...adminMenuItems] : []),
+          ].map((item, idx) => {
+            if (item === null) {
+              return (
+                <div key="divider" style={{
+                  borderTop: "1px solid #f0f0f0",
+                  margin: "8px 4px 8px",
+                }} />
+              );
+            }
+            const active = isActive(item.path);
+            return (
               <div
+                key={item.path}
+                onClick={() => navigate(item.path)}
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 16px", marginTop: 8, marginBottom: 4,
-                  borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  color: "#86909C",
-                  letterSpacing: "0.5px",
+                  padding: "12px 16px", marginBottom: 4,
+                  borderRadius: 8, fontSize: 14, fontWeight: active ? 600 : 500,
+                  color: active ? "#1a1a1a" : "#666",
+                  background: active ? "#f0f0f0" : "transparent",
+                  cursor: "pointer", transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "#f7f7f7";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "transparent";
                 }}
               >
-                <SettingOutlined style={{ fontSize: 14, color: "#86909C" }} />
-                <span>管理后台</span>
+                <span style={{ fontSize: 18, display: "flex", alignItems: "center", color: active ? "#165DFF" : "#86909C" }}>
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
               </div>
-              {adminMenuItems.map((item) => {
-                const isSubActive = location.pathname === item.path;
-                return (
-                  <div
-                    key={item.path}
-                    onClick={() => navigate(item.path)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "10px 16px 10px 32px", marginBottom: 2,
-                      borderRadius: 6, fontSize: 13, fontWeight: isSubActive ? 600 : 500,
-                      color: isSubActive ? "#1677ff" : "#666",
-                      background: isSubActive ? "#e6f4ff" : "transparent",
-                      cursor: "pointer", transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSubActive)
-                        (e.currentTarget as HTMLElement).style.background = "#f7f7f7";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSubActive)
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
-                  >
-                    <span style={{ fontSize: 14, display: "flex", alignItems: "center", color: isSubActive ? "#165DFF" : "#86909C" }}>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </div>
-                );
-              })}
-            </>
-          )}
+            );
+          })}
         </nav>
 
         {/* 用户信息 */}
@@ -164,7 +137,7 @@ export default function MainLayout() {
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{user?.username}</div>
               <div style={{ fontSize: 11, color: "#999" }}>
-                {user?.role === "admin" ? "管理员" : "普通用户"}
+                {roleLabel[user?.role ?? "user"] ?? user?.role}
               </div>
             </div>
           </div>
@@ -173,7 +146,7 @@ export default function MainLayout() {
       </aside>
 
       {/* 主内容 */}
-      <main style={{ marginLeft: 240, flex: 1, padding: "40px 48px", minHeight: "100vh" }}>
+      <main style={{ marginLeft: 240, flex: 1, padding: "0 48px 80px", minHeight: "100vh" }}>
         <Outlet />
       </main>
     </div>

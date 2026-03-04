@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel
 
@@ -16,16 +16,27 @@ class UserCreate(BaseModel):
     password: str
     email: Optional[str] = None
     role: str = "user"
+    expires_at: Optional[datetime] = None
+
+
+class BatchUserCreate(BaseModel):
+    project_name: str          # 项目名称，用于生成用户名前缀
+    start_index: int = 1       # 起始序号
+    count: int                 # 生成数量
+    password: str              # 统一密码
+    expires_at: Optional[datetime] = None  # 可选过期时间
 
 
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     email: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
 
 class UserOut(UserBase):
     id: int
+    expires_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:

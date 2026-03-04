@@ -194,6 +194,15 @@ async def upload_zip(
         extract_path = app_service.extract_upload(tmp_path, app_id)
         app.upload_path = extract_path
         app.status = "pending"
+
+        # 自动读取 README.md 作为应用说明
+        readme_path = Path(extract_path) / "README.md"
+        if readme_path.exists():
+            try:
+                app.description = readme_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+
         db.commit()
     finally:
         os.unlink(tmp_path)
@@ -246,6 +255,8 @@ def stop_app(
     app = db.query(App).filter(App.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="App 不存在")
+    if current_user.role != "admin" and app.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权限操作")
 
     if app.container_name:
         docker_service.stop_container(app.container_name)
@@ -265,6 +276,8 @@ def restart_app(
     app = db.query(App).filter(App.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="App 不存在")
+    if current_user.role != "admin" and app.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权限操作")
     if not app.container_name:
         raise HTTPException(status_code=400, detail="容器不存在，请重新部署")
 
@@ -287,6 +300,8 @@ def delete_app(
     app = db.query(App).filter(App.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="App 不存在")
+    if current_user.role != "admin" and app.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权限操作")
 
     # 停容器 + 删路由
     if app.container_name:

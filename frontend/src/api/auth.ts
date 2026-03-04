@@ -4,8 +4,9 @@ export interface User {
   id: number;
   username: string;
   email?: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "annotator";
   is_active: boolean;
+  expires_at?: string;
   created_at: string;
 }
 

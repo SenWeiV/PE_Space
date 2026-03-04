@@ -188,14 +188,20 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 10,
+        background: "#fafafa",
+        padding: "32px 0 20px",
+        marginBottom: 4,
+        borderBottom: "1px solid #f0f0f0",
+      }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 4px" }}>
           历史记录
-        </Typography.Title>
+        </h1>
         {!loading && !hasRuns && (
-          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          <p style={{ fontSize: 14, color: "#666", margin: 0 }}>
             暂无运行记录，以下为 App 产出的文件列表
-          </Typography.Text>
+          </p>
         )}
       </div>
 

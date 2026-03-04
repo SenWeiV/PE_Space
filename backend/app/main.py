@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import admin, apps, auth, prompts
+from app.routers import admin, apps, auth, config, prompts
 
 app = FastAPI(title="Tool Platform API", version="1.0.0")
 
@@ -18,6 +18,7 @@ app.include_router(auth.router)
 app.include_router(apps.router)
 app.include_router(prompts.router)
 app.include_router(admin.router)
+app.include_router(config.router)
 
 
 @app.get("/api/health")

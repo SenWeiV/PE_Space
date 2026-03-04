@@ -16,11 +16,12 @@ import {
   ArrowDownOutlined
 } from "@ant-design/icons";
 import ReactMarkdown from "react-markdown";
+import { getTemplate } from "@/api/config";
 
 const { TextArea } = Input;
 const { Title, Paragraph, Text } = Typography;
 
-// 默认系统提示词模板
+// 默认代码规范Prompt
 const DEFAULT_SYSTEM_PROMPT_TEMPLATE = `# 角色定位
 你是一位专业的 Streamlit 应用开发工程师，专门为企业内部工具平台开发数据处理类 Web 应用。
 
@@ -376,12 +377,9 @@ export default function HomePage() {
   const [speechSupported, setSpeechSupported] = useState<boolean>(true);
   const recognitionRef = useRef<any>(null);
 
-  // 从 localStorage 加载系统模板
+  // 从数据库加载代码规范Prompt
   useEffect(() => {
-    const saved = localStorage.getItem("system_prompt_template");
-    if (saved) {
-      setSystemTemplate(saved);
-    }
+    getTemplate().then(res => setSystemTemplate(res.data.value)).catch(() => {});
   }, []);
 
   // 检查浏览器是否支持语音识别
@@ -539,15 +537,47 @@ export default function HomePage() {
   };
 
   return (
-    <div style={{ padding: "24px 24px 100px", maxWidth: 1200, margin: "0 auto", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-      {/* 顶部标题区 */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 6px" }}>
+    <div style={{ padding: "0 0 100px", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* 顶部标题区（sticky） */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 10,
+        background: "#fafafa",
+        padding: "32px 0 20px",
+        marginBottom: 8,
+        borderBottom: "1px solid #f0f0f0",
+      }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 12px" }}>
           AI Coding
         </h1>
-        <p style={{ fontSize: 14, color: "#666", margin: 0 }}>
-          💡 在下方填写需求，点击复制后粘贴到 Comate 即可生成应用
-        </p>
+        <style>{`
+          @keyframes gradientBorder {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+        `}</style>
+        <div style={{
+          display: "inline-flex",
+          background: "linear-gradient(270deg, #6366f1, #a855f7, #3b82f6, #06b6d4, #10b981, #6366f1)",
+          backgroundSize: "400% 400%",
+          animation: "gradientBorder 4s ease infinite",
+          borderRadius: 12,
+          padding: 2,
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "11px 20px",
+            background: "#111",
+            borderRadius: 10,
+          }}>
+            <span style={{ fontSize: 20 }}>💡</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "#fff", letterSpacing: "0.2px" }}>
+              在「需求」那填写你的需求，填完之后复制完整的提示词，放到 Comate 里然后一直点确定就好了
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 提示消息 */}
@@ -609,7 +639,7 @@ export default function HomePage() {
       )}
 
       <Row gutter={[24, 24]}>
-        {/* 左侧：系统提示词模板 */}
+        {/* 左侧：代码规范Prompt */}
         <Col xs={24} lg={12}>
           <Card
             title={
@@ -626,7 +656,7 @@ export default function HomePage() {
                   <FileTextOutlined style={{ fontSize: 16, color: '#000000' }} />
                 </div>
                 <span style={{ fontSize: 16, fontWeight: 600, color: theme.textPrimary }}>
-                  系统提示词模板
+                  代码规范Prompt
                 </span>
               </Space>
             }
