@@ -540,35 +540,14 @@ export default function HomePage() {
 
   return (
     <div style={{ padding: "24px 24px 100px", maxWidth: 1200, margin: "0 auto", fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-      {/* 顶部标题区 - 与App界面保持一致 */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 8px" }}>
+      {/* 顶部标题区 */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1a1a1a", letterSpacing: "-0.5px", margin: "0 0 6px" }}>
           AI Coding
         </h1>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          padding: '16px 24px',
-          background: 'linear-gradient(135deg, #F5F5F5 0%, #F0F0F0 100%)',
-          border: '2px solid #000000',
-          borderRadius: 10,
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          width: '100%',
-          maxWidth: '100%'
-        }}>
-          <span style={{ fontSize: 24 }}>💡</span>
-          <p style={{
-            fontSize: 18,
-            fontWeight: 600,
-            color: "#000000",
-            margin: 0,
-            letterSpacing: '0.3px'
-          }}>
-            在下方填写需求，点击复制后粘贴到 Comate 即可生成应用
-          </p>
-        </div>
+        <p style={{ fontSize: 14, color: "#666", margin: 0 }}>
+          💡 在下方填写需求，点击复制后粘贴到 Comate 即可生成应用
+        </p>
       </div>
 
       {/* 提示消息 */}

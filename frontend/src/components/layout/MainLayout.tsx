@@ -1,5 +1,6 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
+import { Popconfirm } from "antd";
 import {
   HomeOutlined,
   AppstoreOutlined,
@@ -136,12 +137,18 @@ export default function MainLayout() {
 
         {/* 用户信息 */}
         <div style={{ padding: "20px 24px", borderTop: "1px solid #f0f0f0" }}>
+          <Popconfirm
+            title="确认退出登录？"
+            onConfirm={() => { clearAuth(); navigate("/login"); }}
+            okText="退出"
+            cancelText="取消"
+            placement="topLeft"
+          >
           <div
             style={{
               display: "flex", alignItems: "center", gap: 12,
               padding: 8, borderRadius: 8, cursor: "pointer",
             }}
-            onClick={() => { clearAuth(); navigate("/login"); }}
             title="点击退出登录"
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f7f7f7"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -161,6 +168,7 @@ export default function MainLayout() {
               </div>
             </div>
           </div>
+          </Popconfirm>
         </div>
       </aside>
 
