@@ -28,6 +28,7 @@ export default function MainLayout() {
   const adminMenuItems = [
     { path: "/admin/users", icon: <UserOutlined />, label: "用户管理" },
     { path: "/admin/template", icon: <FileTextOutlined />, label: "系统模板管理" },
+    { path: "/admin/prompts", icon: <FileTextOutlined />, label: "Prompt 管理" },
   ];
 
   return (
