@@ -202,7 +202,25 @@ export default function UserManagePage() {
         )}
       </div>
 
-      <Table rowKey="id" dataSource={filteredUsers} columns={columns} loading={loading} />
+      <Table
+        rowKey="id"
+        dataSource={filteredUsers}
+        columns={columns}
+        loading={loading}
+        locale={{
+          emptyText: (
+            <div style={{ padding: "48px 20px", color: "#999" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>👤</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: "#1a1a1a", marginBottom: 6 }}>
+                {users.length === 0 ? "暂无用户" : "没有匹配的用户"}
+              </div>
+              <div style={{ fontSize: 13 }}>
+                {users.length === 0 ? "点击右上角「创建用户」添加第一个账号" : "尝试调整筛选条件"}
+              </div>
+            </div>
+          ),
+        }}
+      />
 
       {/* 单个创建 */}
       <Modal

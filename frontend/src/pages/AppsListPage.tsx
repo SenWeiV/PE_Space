@@ -291,23 +291,25 @@ export default function AppsListPage() {
             查看和管理所有应用
           </p>
         </div>
-        <button
-          onClick={() => setUploadOpen(true)}
-          style={{
-            padding: "12px 24px", background: "#2c2c2c", color: "#fff",
-            border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600,
-            cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#1a1a1a"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#2c2c2c"; }}
-        >
-          <span>＋</span> 上传 App
-        </button>
+        {apps.length > 0 && (
+          <button
+            onClick={() => setUploadOpen(true)}
+            style={{
+              padding: "12px 24px", background: "#2c2c2c", color: "#fff",
+              border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#1a1a1a"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#2c2c2c"; }}
+          >
+            <span>＋</span> 上传 App
+          </button>
+        )}
       </div>
 
-      {/* 筛选栏 */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center", flexWrap: "wrap" }}>
+      {/* 筛选栏（有应用时才显示） */}
+      {apps.length > 0 && <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center", flexWrap: "wrap" }}>
         <Input.Search
           placeholder="搜索应用名或创建者..."
           allowClear
@@ -332,7 +334,7 @@ export default function AppsListPage() {
             {filteredApps.length} / {apps.length} 个应用
           </span>
         )}
-      </div>
+      </div>}
 
       {/* 内容 */}
       {loading && apps.length === 0 ? (

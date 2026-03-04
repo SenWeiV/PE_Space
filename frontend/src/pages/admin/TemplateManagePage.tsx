@@ -173,7 +173,7 @@ export default function TemplateManagePage() {
                   onClick={handleSave}
                   disabled={!hasChanges}
                   loading={saving}
-                  style={{ background: "#000", borderColor: "#000" }}
+                  style={hasChanges ? { background: "#000", borderColor: "#000" } : {}}
                 >
                   保存修改
                 </Button>
