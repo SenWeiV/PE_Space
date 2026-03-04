@@ -1,8 +1,12 @@
 import json
+import logging
 import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+MAX_ZIP_SIZE = 100 * 1024 * 1024  # 100 MB
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -52,22 +56,24 @@ def list_apps(
     total = query.count()
     apps = query.order_by(App.created_at.desc()).offset((page - 1) * size).limit(size).all()
 
-    items = []
-    for app in apps:
-        owner = db.query(User).filter(User.id == app.owner_id).first()
-        items.append(
-            AppListItem(
-                id=app.id,
-                name=app.name,
-                slug=app.slug,
-                description=app.description,
-                status=app.status,
-                access_url=f"/apps/{app.slug}" if app.status == "running" else None,
-                owner=UserOut.model_validate(owner),
-                created_at=app.created_at,
-                updated_at=app.updated_at,
-            )
+    # 批量加载 owner，避免 N+1 查询
+    owner_ids = list({app.owner_id for app in apps})
+    owners = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()} if owner_ids else {}
+
+    items = [
+        AppListItem(
+            id=app.id,
+            name=app.name,
+            slug=app.slug,
+            description=app.description,
+            status=app.status,
+            access_url=f"/apps/{app.slug}" if app.status == "running" else None,
+            owner=UserOut.model_validate(owners[app.owner_id]),
+            created_at=app.created_at,
+            updated_at=app.updated_at,
         )
+        for app in apps
+    ]
 
     return AppListResponse(total=total, page=page, size=size, items=items)
 
@@ -106,7 +112,9 @@ def list_all_runs(
         history_dir = Path(settings.upload_dir) / str(app.id) / "data" / "history"
         if not history_dir.exists():
             continue
-        for f in history_dir.glob("*.json"):
+        # 只取最新 50 条，避免全量读取
+        files = sorted(history_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True)[:50]
+        for f in files:
             try:
                 record = json.loads(f.read_text(encoding="utf-8"))
                 if current_user.role != "admin" and record.get("username") != current_user.username:
@@ -117,11 +125,12 @@ def list_all_runs(
                     "app_name": app.name,
                     "app_slug": app.slug,
                 })
-            except Exception:
+            except Exception as e:
+                logger.warning("解析历史文件 %s 失败: %s", f, e)
                 continue
 
     all_runs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-    return {"runs": all_runs}
+    return {"runs": all_runs[:200]}
 
 
 @router.get("/history/files")
@@ -150,7 +159,7 @@ def list_all_files(
                 })
 
     all_files.sort(key=lambda x: x["modified_at"], reverse=True)
-    return {"files": all_files}
+    return {"files": all_files[:500]}
 
 
 @router.get("/{app_id}")
@@ -183,6 +192,8 @@ async def upload_zip(
     # 临时保存 zip 文件
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
         content = await file.read()
+        if len(content) > MAX_ZIP_SIZE:
+            raise HTTPException(status_code=400, detail="文件过大，最大支持 100 MB")
         tmp.write(content)
         tmp_path = tmp.name
 
@@ -356,6 +367,8 @@ def download_output(
     app = db.query(App).filter(App.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="App 不存在")
+    if current_user.role != "admin" and app.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权限访问")
 
     allowed_base = (Path(settings.upload_dir) / str(app_id) / "data" / "outputs").resolve()
     file_path = (allowed_base / run_id / filename).resolve()
@@ -379,6 +392,8 @@ def download_data_file(
     app = db.query(App).filter(App.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="App 不存在")
+    if current_user.role != "admin" and app.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权限访问")
 
     allowed_base = (Path(settings.upload_dir) / str(app_id) / "data").resolve()
     target = (allowed_base / file_path).resolve()

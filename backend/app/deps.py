@@ -40,7 +40,7 @@ def get_current_user(
 
     # 检查账号是否已过期
     if user.expires_at is not None:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         if user.expires_at < now:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

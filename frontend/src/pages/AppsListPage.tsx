@@ -29,10 +29,11 @@ function stripMarkdown(text: string): string {
 }
 
 function AppCard({
-  app, canManage, onStop, onRestart, onDelete, onDetail,
+  app, canManage, isActing, onStop, onRestart, onDelete, onDetail,
 }: {
   app: AppItem;
   canManage: boolean;
+  isActing: boolean;
   onStop: () => void;
   onRestart: () => void;
   onDelete: () => void;
@@ -59,6 +60,7 @@ function AppCard({
     {
       key: "detail",
       label: "查看详情",
+      disabled: isActing,
       onClick: ({ domEvent }) => { domEvent.stopPropagation(); onDetail(); },
     },
   ];
@@ -66,6 +68,7 @@ function AppCard({
     menuItems.push({
       key: "stop",
       label: "停止应用",
+      disabled: isActing,
       onClick: ({ domEvent }) => { domEvent.stopPropagation(); onStop(); },
     });
   }
@@ -73,6 +76,7 @@ function AppCard({
     menuItems.push({
       key: "restart",
       label: "启动应用",
+      disabled: isActing,
       onClick: ({ domEvent }) => { domEvent.stopPropagation(); onRestart(); },
     });
   }
@@ -80,7 +84,8 @@ function AppCard({
     menuItems.push({ type: "divider" });
     menuItems.push({
       key: "delete",
-      label: <span style={{ color: "#ef4444" }}>删除应用</span>,
+      label: <span style={{ color: isActing ? "#ccc" : "#ef4444" }}>删除应用</span>,
+      disabled: isActing,
       onClick: ({ domEvent }) => {
         domEvent.stopPropagation();
         Modal.confirm({
@@ -195,26 +200,28 @@ function AppCard({
         style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <Dropdown menu={{ items: menuItems }} trigger={["click"]} placement="bottomRight">
+        <Dropdown menu={{ items: menuItems }} trigger={isActing ? [] : ["click"]} placement="bottomRight">
           <button
             style={{
               padding: "4px 12px",
-              background: "transparent", color: "#aaa",
-              border: "1px solid #e5e5e5", borderRadius: 6,
-              fontSize: 18, cursor: "pointer", lineHeight: 1,
+              background: "transparent", color: isActing ? "#ddd" : "#aaa",
+              border: `1px solid ${isActing ? "#f0f0f0" : "#e5e5e5"}`, borderRadius: 6,
+              fontSize: 18, cursor: isActing ? "not-allowed" : "pointer", lineHeight: 1,
               letterSpacing: 1, transition: "all 0.15s",
             }}
             onMouseEnter={(e) => {
+              if (isActing) return;
               const el = e.currentTarget as HTMLElement;
               el.style.borderColor = "#c0c0c0";
               el.style.color = "#555";
             }}
             onMouseLeave={(e) => {
+              if (isActing) return;
               const el = e.currentTarget as HTMLElement;
               el.style.borderColor = "#e5e5e5";
               el.style.color = "#aaa";
             }}
-          >···</button>
+          >{isActing ? "…" : "···"}</button>
         </Dropdown>
       </div>
     </div>
@@ -228,6 +235,7 @@ export default function AppsListPage() {
   const [detailApp, setDetailApp] = useState<AppItem | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   const { user } = useAuthStore();
 
   const filteredApps = useMemo(() => {
@@ -256,15 +264,21 @@ export default function AppsListPage() {
   }, []);
 
   const handleStop = async (id: number) => {
-    await stopApp(id); message.success("已停止"); fetchApps();
+    setActionLoading(id);
+    try { await stopApp(id); message.success("已停止"); fetchApps(); }
+    finally { setActionLoading(null); }
   };
   const handleRestart = async (id: number) => {
-    await restartApp(id); message.success("已启动"); fetchApps();
+    setActionLoading(id);
+    try { await restartApp(id); message.success("已启动"); fetchApps(); }
+    finally { setActionLoading(null); }
   };
   const handleDelete = async (id: number) => {
-    await deleteApp(id); message.success("已删除");
-    setDetailApp(null);
-    fetchApps();
+    setActionLoading(id);
+    try {
+      await deleteApp(id); message.success("已删除");
+      setDetailApp(null); fetchApps();
+    } finally { setActionLoading(null); }
   };
 
   const canManage = (app: AppItem) =>
@@ -373,6 +387,7 @@ export default function AppsListPage() {
               key={app.id}
               app={app}
               canManage={canManage(app)}
+              isActing={actionLoading === app.id}
               onStop={() => handleStop(app.id)}
               onRestart={() => handleRestart(app.id)}
               onDelete={() => handleDelete(app.id)}

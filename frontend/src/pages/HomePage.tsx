@@ -39,12 +39,14 @@ const DEFAULT_SYSTEM_PROMPT_TEMPLATE = `# 角色定位
 
 ## 一、文件结构要求（严格限制）
 
-**只能输出两个文件，不允许任何其他文件：**
+**标准输出文件（根据需求选择）：**
 
-1. **app.py** - Streamlit 应用主入口
-2. **requirements.txt** - Python 依赖列表
+1. **app.py** - Streamlit 应用主入口（必须）
+2. **requirements.txt** - Python 依赖列表（必须）
+3. **README.md** - 工具说明（推荐，部署后自动展示为应用描述）
+4. **config.py** - API 密钥配置（仅当需要调用外部 API 时包含）
 
-> ⚠️ 禁止输出：Dockerfile、配置文件、资源文件、目录结构说明等任何额外内容
+> ⚠️ 禁止输出：Dockerfile、其他配置文件、资源文件、目录结构说明等
 
 ---
 
@@ -62,16 +64,19 @@ const DEFAULT_SYSTEM_PROMPT_TEMPLATE = `# 角色定位
 
 ### 2.2 路径规范（强制执行）
 
+**必须使用环境自适应路径，同时支持本地开发和部署运行：**
+
 \`\`\`python
 from pathlib import Path
 
-# 当前脚本所在目录（临时文件、缓存）
 BASE_DIR = Path(__file__).parent
 
-# 持久化数据目录（跨部署保留，已挂载到宿主机）
-DATA_DIR = Path("/app/data")
-DATA_DIR.mkdir(parents=True, exist_ok=True)  # 必须确保目录存在
+# 自动适配环境：部署时用 /app/data，本地开发时用 ./data
+DATA_DIR = Path("/app/data") if Path("/app").exists() else BASE_DIR / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 \`\`\`
+
+> ⚠️ 禁止写死 \`DATA_DIR = Path("/app/data")\`——本地没有 /app 目录会直接报错
 
 ### 2.3 错误处理规范（强制执行）
 所有可能出错的地方必须捕获异常，使用 st.error() 友好展示：
@@ -95,6 +100,50 @@ except Exception as e:
 - 用户态数据：使用 st.session_state 存储
 - 持久化数据：写入 /app/data 目录，考虑并发安全
 - 写入操作必须原子化（先写临时文件，再重命名）
+
+### 2.5 外部 API 密钥配置（调用 LLM / 搜索 API 等场景）
+
+当应用需要调用外部 API 时，**必须使用独立的 config.py 存储密钥**，同时在文件结构中包含该文件：
+
+\`\`\`python
+# config.py — ⚠️ 用户首次使用前必须填入真实密钥！
+OPENAI_API_KEY = "sk-xxx"              # 从服务提供商获取
+OPENAI_BASE_URL = "https://api.openai.com/v1"  # 或内网代理地址
+MODEL_NAME = "gpt-4o-mini"
+\`\`\`
+
+**app.py 启动时必须检测配置：**
+
+\`\`\`python
+from config import OPENAI_API_KEY, OPENAI_BASE_URL, MODEL_NAME
+
+if not OPENAI_API_KEY or OPENAI_API_KEY == "sk-xxx":
+    st.error("⚠️ 请先在 config.py 中填入你的 OPENAI_API_KEY，然后重新运行！")
+    st.stop()
+\`\`\`
+
+**OpenAI 非流式调用标准写法：**
+
+\`\`\`python
+from openai import OpenAI
+
+def call_llm(prompt: str, system: str = "") -> str:
+    client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+    messages = ([{"role": "system", "content": system}] if system else [])
+    messages.append({"role": "user", "content": prompt})
+    response = client.chat.completions.create(
+        model=MODEL_NAME, messages=messages, stream=False
+    )
+    return response.choices[0].message.content
+\`\`\`
+
+> ⚠️ 有 API 调用时，zip 包内须包含 config.py（用户已填入密钥的版本）
+
+---
+
+## 二点五、联网搜索规范
+
+> 遇到不熟悉的库版本、API 参数或任何不确定的内容，**必须先联网搜索确认，不要凭记忆生成**。
 
 ---
 
@@ -297,7 +346,7 @@ openpyxl>=3.1.0
 生成代码前，请确保：
 - [ ] app.py 第一行是 st.set_page_config
 - [ ] 使用了 BASE_DIR = Path(__file__).parent
-- [ ] 使用了 DATA_DIR = Path("/app/data") 且 mkdir
+- [ ] DATA_DIR 使用环境自适应写法（Path("/app").exists() 判断），不是写死 /app/data
 - [ ] 所有异常都有 try-except 包裹和 st.error() 提示
 - [ ] 没有使用 calamine、pywin32 等禁用包
 - [ ] Excel 操作使用 openpyxl 引擎
@@ -307,7 +356,29 @@ openpyxl>=3.1.0
 - [ ] 批量操作有 st.progress
 - [ ] 结果通过 st.download_button 提供下载
 - [ ] 函数有类型标注
-- [ ] requirements.txt 符合规范`;
+- [ ] requirements.txt 符合规范
+- [ ] 如有 API 调用：使用 config.py 存储密钥，启动时检测并提示用户配置
+- [ ] 不确定的内容已联网搜索确认`;
+
+// 快捷插入片段
+const QUICK_SNIPPETS = [
+  {
+    label: "🤖 调用 LLM",
+    text: `\n\n【需要调用 LLM 接口】\n- 使用 OpenAI 兼容 API（非流式 stream=False）\n- API_KEY / BASE_URL / MODEL_NAME 通过 config.py 配置，不得硬编码\n- 应用启动时检测配置是否填写，未填写则 st.error + st.stop`,
+  },
+  {
+    label: "🔍 Tool Call 搜索",
+    text: `\n\n【需要联网搜索能力】\n- 使用 LLM Function Calling 调用搜索工具\n- 搜索 API 使用 Tavily（TAVILY_API_KEY 在 config.py 配置）\n- LLM 基于搜索结果综合生成最终回答`,
+  },
+  {
+    label: "⚡ 批量并发",
+    text: `\n\n【需要批量并发处理】\n- 使用 ThreadPoolExecutor 并发执行\n- 页面提供并发数滑块（范围 1-10）\n- 实时显示 st.progress 进度条，完成后可下载结果`,
+  },
+  {
+    label: "📊 数据可视化",
+    text: `\n\n【需要数据可视化】\n- 使用 plotly 生成交互式图表（st.plotly_chart）\n- 支持按需切换图表类型（柱状图 / 折线图 / 饼图等）`,
+  },
+];
 
 // 示例需求
 const EXAMPLE_REQUIREMENT = `工具名称：CSV 数据清洗工具
@@ -738,6 +809,24 @@ export default function HomePage() {
               border: `1px solid ${theme.border}`
             }}
           >
+            {/* 快捷插入 */}
+            <div style={{ marginBottom: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
+                快捷插入技术需求：
+              </Text>
+              <Space size={6} wrap>
+                {QUICK_SNIPPETS.map((s) => (
+                  <Tag
+                    key={s.label}
+                    style={{ cursor: "pointer", padding: "3px 12px", fontSize: 13, borderRadius: 12, userSelect: "none" }}
+                    onClick={() => setUserRequirement(prev => prev + s.text)}
+                  >
+                    {s.label}
+                  </Tag>
+                ))}
+              </Space>
+            </div>
+
             <TextArea
               value={userRequirement}
               onChange={(e) => setUserRequirement(e.target.value)}
