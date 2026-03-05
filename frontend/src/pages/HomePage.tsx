@@ -62,7 +62,7 @@ const DEFAULT_SYSTEM_PROMPT_TEMPLATE = `# 角色定位
 - ❌ 禁止使用全局可变状态存储用户数据
 - ❌ 禁止在代码中包含测试代码、示例数据硬编码
 
-### 2.2 路径规范（强制执行）
+### 2.2 路径与数据存储规范（强制执行）
 
 **必须使用环境自适应路径，同时支持本地开发和部署运行：**
 
@@ -76,7 +76,40 @@ DATA_DIR = Path("/app/data") if Path("/app").exists() else BASE_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 \`\`\`
 
-> ⚠️ 禁止写死 \`DATA_DIR = Path("/app/data")\`——本地没有 /app 目录会直接报错
+> ⚠️ 禁止写死 DATA_DIR = Path("/app/data")——本地没有 /app 目录会直接报错
+
+**DATA_DIR 子目录规范（按需创建）：**
+
+\`\`\`python
+OUTPUT_DIR  = DATA_DIR / "outputs"   # 每次运行的输出文件
+HISTORY_DIR = DATA_DIR / "history"   # 运行历史记录（JSON）
+UPLOAD_DIR  = DATA_DIR / "uploads"   # 用户上传的原始文件（如需留存）
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+\`\`\`
+
+**运行历史记录标准格式（有处理结果时必须写入）：**
+
+\`\`\`python
+import json, uuid
+from datetime import datetime
+
+def save_history(username: str, inputs: dict, summary: str, output_files: list):
+    run_id = str(uuid.uuid4())[:8]
+    record = {
+        "run_id": run_id,
+        "username": username,
+        "timestamp": datetime.now().isoformat(),
+        "inputs": inputs,
+        "summary": summary,
+        "output_files": output_files,
+    }
+    (HISTORY_DIR / f"{run_id}.json").write_text(
+        json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return run_id
+\`\`\`
 
 ### 2.3 错误处理规范（强制执行）
 所有可能出错的地方必须捕获异常，使用 st.error() 友好展示：
@@ -138,6 +171,38 @@ def call_llm(prompt: str, system: str = "") -> str:
 \`\`\`
 
 > ⚠️ 有 API 调用时，zip 包内须包含 config.py（用户已填入密钥的版本）
+
+### 2.6 代码解耦与分层结构
+
+**判断标准：**
+- 简单工具（单一功能、无 LLM 调用、<150 行）：平铺结构即可
+- 复杂工具（涉及 LLM / 多功能 / 数据处理流水线）：**必须使用分层结构**
+
+**分层结构模板：**
+
+\`\`\`
+app.py              # 只负责 UI 展示与用户交互（必须）
+config.py           # API 密钥和配置常量（有外部 API 时必须）
+requirements.txt    # 依赖列表（必须）
+src/
+├── llm.py          # LLM 客户端封装、调用函数
+├── service.py      # 核心业务逻辑
+└── utils.py        # 通用工具函数
+\`\`\`
+
+**app.py 只做这两件事：**
+
+\`\`\`python
+import streamlit as st
+from src.service import process_data
+from src.llm import call_llm
+
+st.set_page_config(...)
+# 渲染 UI 组件、接收用户输入
+# 调用 src/ 函数处理、展示结果
+\`\`\`
+
+**强制规则：src/ 内的所有文件禁止 import streamlit**（UI 与逻辑完全解耦）
 
 ---
 
