@@ -117,40 +117,33 @@ except Exception as e:
 - 持久化数据：写入 /app/data 目录，考虑并发安全
 - 写入操作必须原子化（先写临时文件，再重命名）
 
-### 2.5 外部 API 密钥配置（调用 LLM / 搜索 API 等场景）
+### 2.5 外部依赖配置（config.py 分区规范）
 
-当应用需要调用外部 API 时，**必须使用独立的 `config.py` 存储密钥**：
+有外部 API 时必须使用独立 `config.py`，**按功能分区写注释**：
 
 ```python
-# config.py — ⚠️ 用户首次使用前必须填入真实密钥！
-OPENAI_API_KEY = "sk-xxx"              # 从服务提供商获取
-OPENAI_BASE_URL = "https://api.openai.com/v1"  # 或内网代理地址
-MODEL_NAME = "gpt-4o-mini"
+# config.py — ⚠️ 使用前必须填入真实密钥！
+
+# ── LLM ──────────────────────────────────────────
+LLM_API_KEY  = "sk-xxx"                        # LLM 服务的 API Key
+LLM_BASE_URL = "https://api.openai.com/v1"     # 支持任意 OpenAI 兼容接口
+LLM_MODEL    = "gpt-4o-mini"                   # 模型名称
+
+# ── 搜索（Tavily） ────────────────────────────────
+TAVILY_API_KEY = "tvly-xxx"                    # 仅需联网搜索时填写
+
+# ── 存储 ─────────────────────────────────────────
+# DATA_DIR 由 app.py 自动适配，无需在此配置
 ```
 
-**app.py 启动时必须检测配置：**
+**启动检测（app.py 顶部）：**
 
 ```python
-from config import OPENAI_API_KEY, OPENAI_BASE_URL, MODEL_NAME
+from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 
-if not OPENAI_API_KEY or OPENAI_API_KEY == "sk-xxx":
-    st.error("⚠️ 请先在 config.py 中填入你的 OPENAI_API_KEY，然后重新运行！")
+if not LLM_API_KEY or LLM_API_KEY == "sk-xxx":
+    st.error("⚠️ 请先在 config.py 中填入 LLM_API_KEY")
     st.stop()
-```
-
-**OpenAI 非流式调用标准写法：**
-
-```python
-from openai import OpenAI
-
-def call_llm(prompt: str, system: str = "") -> str:
-    client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
-    messages = ([{"role": "system", "content": system}] if system else [])
-    messages.append({"role": "user", "content": prompt})
-    response = client.chat.completions.create(
-        model=MODEL_NAME, messages=messages, stream=False
-    )
-    return response.choices[0].message.content
 ```
 
 > ⚠️ 有 API 调用时，zip 包内须包含已填入密钥的 config.py
@@ -159,34 +152,62 @@ def call_llm(prompt: str, system: str = "") -> str:
 
 **判断标准：**
 - 简单工具（单一功能、无 LLM 调用、<150 行）：平铺结构即可
-- 复杂工具（涉及 LLM / 多功能 / 数据处理流水线）：**必须使用分层结构**
+- 复杂工具（涉及 LLM / 搜索 / 多功能 / 数据处理流水线）：**必须使用分层结构**
 
 **分层结构模板：**
 
 ```
 app.py              # 只负责 UI 展示与用户交互（必须）
-config.py           # API 密钥和配置常量（有外部 API 时必须）
+config.py           # 外部依赖配置，按分区写注释（有外部 API 时必须）
 requirements.txt    # 依赖列表（必须）
 src/
-├── llm.py          # LLM 客户端封装、调用函数
+├── llm.py          # LLM 客户端封装（使用 config.LLM_* 配置）
+├── search.py       # 搜索 API 封装（使用 config.TAVILY_API_KEY，仅需搜索时包含）
 ├── service.py      # 核心业务逻辑
 └── utils.py        # 通用工具函数（文件处理、格式转换等）
+```
+
+**src/llm.py 标准写法：**
+
+```python
+from openai import OpenAI
+from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
+
+def call_llm(prompt: str, system: str = "") -> str:
+    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+    messages = ([{"role": "system", "content": system}] if system else [])
+    messages.append({"role": "user", "content": prompt})
+    resp = client.chat.completions.create(
+        model=LLM_MODEL, messages=messages, stream=False
+    )
+    return resp.choices[0].message.content
+```
+
+**src/search.py 标准写法（需要联网搜索时）：**
+
+```python
+from tavily import TavilyClient
+from config import TAVILY_API_KEY
+
+def search(query: str, max_results: int = 5) -> list[dict]:
+    client = TavilyClient(api_key=TAVILY_API_KEY)
+    resp = client.search(query=query, max_results=max_results)
+    return resp.get("results", [])
 ```
 
 **app.py 只做这两件事：**
 
 ```python
 import streamlit as st
-from src.service import process_data   # 调用业务逻辑
-from src.llm import call_llm           # 调用 LLM
+from src.service import process_data
+from src.llm import call_llm
 
 st.set_page_config(...)
 # 渲染 UI 组件、接收用户输入
-# 调用 src/ 函数处理
-# 展示结果
+# 调用 src/ 函数处理、展示结果
 ```
 
-**强制规则：`src/` 内的所有文件禁止 import streamlit**（UI 与逻辑完全解耦）
+**强制规则：`src/` 内所有文件禁止 import streamlit**（UI 与逻辑完全解耦）
 
 ---
 
