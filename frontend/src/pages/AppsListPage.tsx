@@ -53,7 +53,26 @@ function AppCard({
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     const url = window.location.origin + app.access_url;
-    navigator.clipboard.writeText(url).then(() => message.success("链接已复制"));
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => message.success("链接已复制")).catch(() => {
+        fallbackCopy(url);
+      });
+    } else {
+      fallbackCopy(url);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(el);
+    if (ok) message.success("链接已复制");
+    else message.error("复制失败，请手动复制：" + text);
   };
 
   const menuItems: MenuProps["items"] = [
