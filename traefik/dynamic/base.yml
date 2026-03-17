@@ -1,0 +1,33 @@
+http:
+  routers:
+    # /api → FastAPI 后端
+    backend:
+      rule: "PathPrefix(`/api`)"
+      service: backend-svc
+      priority: 10
+
+    # / → React 前端（兜底）
+    frontend:
+      rule: "PathPrefix(`/`)"
+      service: frontend-svc
+      priority: 1
+
+  middlewares:
+    pe-auth:
+      forwardAuth:
+        address: "http://backend:8000/api/auth/verify-app"
+        authResponseHeaders:
+          - "X-PE-User"
+          - "X-PE-Role"
+          - "X-PE-User-Id"
+
+  services:
+    backend-svc:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
+
+    frontend-svc:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:80"

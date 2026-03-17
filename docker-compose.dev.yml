@@ -1,0 +1,69 @@
+version: "3.9"
+
+networks:
+  dev-network:
+    driver: bridge
+
+volumes:
+  postgres-dev-data:
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres_dev
+    environment:
+      POSTGRES_DB: tool_platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: dev123
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d tool_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: backend_dev
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql://platform:dev123@postgres/tool_platform
+      JWT_SECRET: dev-local-secret-key-change-in-prod
+      JWT_EXPIRE_SECONDS: 86400
+      UPLOAD_DIR: /uploads/apps
+      HOST_UPLOAD_DIR: /tmp/pe_uploads
+      TRAEFIK_DYNAMIC_DIR: /tmp/traefik-dynamic
+      HOST_IP: host.docker.internal
+      PORT_RANGE_START: 8600
+      PORT_RANGE_END: 9600
+    volumes:
+      - ./backend/app:/app/app         # 热重载：修改后端代码立即生效
+      - /tmp/pe_uploads:/uploads/apps
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dev-network
+
+  frontend:
+    image: docker.m.daocloud.io/library/node:20-alpine
+    container_name: frontend_dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    volumes:
+      - ./frontend:/app                # 热重载：修改前端代码立即生效
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE: ""
+    networks:
+      - dev-network

@@ -1,0 +1,15 @@
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true   # 文件变化自动热加载
+
+log:
+  level: INFO
