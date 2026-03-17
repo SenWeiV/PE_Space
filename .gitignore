@@ -1,0 +1,38 @@
+# Environment
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/node_modules/
+dist/
+
+# Docker volumes
+uploads/
+postgres-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Build artifacts
+deploy.tar.gz
+
+# Traefik dynamic app routes (auto-generated, keep base.yml)
+traefik/dynamic/app_*.yml

@@ -1,0 +1,80 @@
+version: "3.9"
+
+networks:
+  tool-platform-network:
+    external: true
+    name: pe_space_tool-platform-network
+
+volumes:
+  postgres-data:
+
+services:
+
+  # ─── Traefik 反向代理 ────────────────────────────────
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic   # 直接挂载宿主机目录，热加载生效
+    networks:
+      - tool-platform-network
+
+  # ─── PostgreSQL ──────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tool_platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - tool-platform-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d tool_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FastAPI 后端 ────────────────────────────────────
+  backend:
+    image: tool-platform-backend:latest
+    container_name: backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://platform:${POSTGRES_PASSWORD}@postgres/tool_platform
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRE_SECONDS: 86400
+      UPLOAD_DIR: /uploads/apps
+      HOST_UPLOAD_DIR: ${HOST_UPLOAD_DIR}
+      TRAEFIK_DYNAMIC_DIR: /traefik-dynamic
+      HOST_IP: ${HOST_IP:-host.docker.internal}
+      PORT_RANGE_START: 8600
+      PORT_RANGE_END: 9600
+      TEAM_API_KEY: ${TEAM_API_KEY:-}
+      TEAM_BASE_URL: ${TEAM_BASE_URL:-http://104.238.222.107:3006/v1}
+    volumes:
+      - ${HOST_UPLOAD_DIR}:/uploads/apps
+      - ./traefik/dynamic:/traefik-dynamic       # App 部署时写入路由文件
+      - /var/run/docker.sock:/var/run/docker.sock  # 用于管理 App 容器
+      - ./team-setup/install-all.sh:/install.sh:ro  # 一键安装脚本，对外提供下载
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tool-platform-network
+
+  # ─── React 前端 ──────────────────────────────────────
+  frontend:
+    image: tool-platform-frontend:latest
+    container_name: frontend
+    restart: unless-stopped
+    networks:
+      - tool-platform-network
