@@ -59,7 +59,7 @@ services:
       PORT_RANGE_START: 8600
       PORT_RANGE_END: 9600
       TEAM_API_KEY: ${TEAM_API_KEY:-}
-      TEAM_BASE_URL: ${TEAM_BASE_URL:-http://104.238.222.107:3006/v1}
+      TEAM_BASE_URL: ${TEAM_BASE_URL:-}
     volumes:
       - ${HOST_UPLOAD_DIR}:/uploads/apps
       - ./traefik/dynamic:/traefik-dynamic       # App 部署时写入路由文件

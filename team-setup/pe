@@ -41,7 +41,7 @@ def get_url() -> str:
     cfg = load_config()
     url = cfg.get("url", "")
     if not url:
-        print("❌ 未登录，请先运行: pe login --url http://120.48.9.224")
+        print("❌ 未登录，请先运行: pe login --url http://YOUR_PLATFORM_HOST")
         sys.exit(1)
     return url.rstrip("/")
 
@@ -217,7 +217,7 @@ def _sync_ai_config(url: str, token: str):
 def cmd_login(args):
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument("--url", default="http://120.48.9.224")
+    p.add_argument("--url", default="http://YOUR_PLATFORM_HOST")
     p.add_argument("--username", default=None)
     p.add_argument("--password", default=None)
     opts = p.parse_args(args)
