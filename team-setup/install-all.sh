@@ -10,7 +10,7 @@ ok()   { printf "  ${GREEN}✓${RESET} %s\n" "$*"; }
 log()  { printf "  ${DIM}·${RESET} %s\n" "$*"; }
 warn() { printf "  ${YELLOW}⚠${RESET}  %s\n" "$*"; }
 
-PE_PLATFORM="http://120.48.9.224"
+PE_PLATFORM="http://YOUR_PLATFORM_HOST"
 
 printf "\n  ${BOLD}PE Space 团队环境安装${RESET}\n\n"
 
@@ -227,7 +227,7 @@ pe deploy --name "{应用名称}" --slug {slug} --desc "{一句话描述}"
 ### 第五步：告知用户结果
 
 部署成功后，告知用户：
-- 应用访问链接（如 `http://120.48.9.224/apps/text-cleaner/`）
+- 应用访问链接（如 `http://YOUR_PLATFORM_HOST/apps/text-cleaner/`）
 - 需要登录 PE Space 账号才能访问
 
 ---
@@ -331,5 +331,5 @@ end tell
 APPLESCRIPT
 
 openclaw dashboard 2>/dev/null || true
-open "http://120.48.9.224"
-printf "  PE Space: http://120.48.9.224\n\n"
+open "http://YOUR_PLATFORM_HOST"
+printf "  PE Space: http://YOUR_PLATFORM_HOST\n\n"

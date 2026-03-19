@@ -235,8 +235,8 @@ function AppCard({
           <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{app.owner.username}</span>
         </div>
         <div style={{ display: "flex", gap: 8, fontSize: 13 }}>
-          <span style={{ color: "#999", minWidth: 44 }}>时间</span>
-          <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{dayjs(app.created_at).format("YYYY-MM-DD HH:mm")}</span>
+          <span style={{ color: "#999", minWidth: 44 }}>工具最近更新时间</span>
+          <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{dayjs(app.updated_at).format("YYYY-MM-DD HH:mm")}</span>
         </div>
       </div>
 

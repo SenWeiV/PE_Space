@@ -27,7 +27,7 @@ codex --version
 
 **auth.json:**
 ```json
-{"OPENAI_API_KEY": "sk-YaE1JNHEOdyqJ5sTWnSpuucCwU88Dimz2oFyBy9BXPfukohd"}
+{"OPENAI_API_KEY": "sk-your-api-key-here"}
 ```
 
 **config.toml:**
@@ -40,7 +40,7 @@ preferred_auth_method = "apikey"
 
 [model_providers.team]
 name = "team"
-base_url = "http://104.238.222.107:3006/v1"
+base_url = "http://YOUR_AI_SERVICE_HOST:3006/v1"
 wire_api = "responses"
 ```
 
@@ -62,8 +62,8 @@ openclaw gateway status
 
 ### 6. 验证 OpenClaw 配置
 检查 `~/.openclaw/openclaw.json` 是否存在，内容包含正确的 provider 和 API key：
-- base_url: `http://104.238.222.107:3006/v1`
-- api_key: `sk-YaE1JNHEOdyqJ5sTWnSpuucCwU88Dimz2oFyBy9BXPfukohd`
+- base_url: `http://YOUR_AI_SERVICE_HOST:3006/v1`
+- api_key: `sk-your-api-key-here`
 - model: `gpt-5.2`
 
 ### 7. 验证 PE Space CLI
@@ -73,7 +73,7 @@ pe whoami
 - 如果输出用户名和平台地址，说明已登录成功
 - 如果提示未登录，执行：
   ```bash
-  pe login --url http://120.48.9.224
+  pe login --url http://YOUR_PLATFORM_HOST
   # 账号：姓名全拼，密码：全拼+123
   ```
 - 如果命令找不到，检查 `~/.local/bin/pe` 是否存在，并确认 PATH 包含 `~/.local/bin`
@@ -93,7 +93,7 @@ pe list
 OpenClaw Dashboard: http://127.0.0.1:18789
 Codex: 在任意项目目录运行 codex 即可使用
 PE Space: pe list 查看应用，pe deploy 部署新应用
-平台地址: http://120.48.9.224
+平台地址: http://YOUR_PLATFORM_HOST
 
 有问题随时找我。
 ```
