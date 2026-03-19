@@ -2,7 +2,7 @@
 
 类似 HuggingFace Spaces 的内部工具托管平台，支持一键上传并部署 Streamlit 应用，带用户管理、权限控制和使用统计。团队成员通过 `pe` CLI 或 OpenClaw AI 助手操作。
 
-访问地址：**http://120.48.9.224**
+访问地址：**http://YOUR_PLATFORM_HOST**
 
 ---
 
@@ -99,7 +99,7 @@ docker compose exec backend alembic upgrade head
 ## 团队成员安装（一键）
 
 ```bash
-curl -fsSL http://172.26.88.170:8080/install.sh | bash
+curl -fsSL http://YOUR_PLATFORM_HOST:8080/install.sh | bash
 ```
 
 安装内容：Node.js、Codex CLI、OpenClaw、`pe` CLI。安装完成后自动登录，登录时从服务端拉取并写入：
