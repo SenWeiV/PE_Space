@@ -86,7 +86,7 @@ pe deploy --name "{应用名称}" --slug {slug} --desc "{一句话描述}"
 ### 第五步：告知用户结果
 
 部署成功后，告知用户：
-- 应用访问链接（如 `http://120.48.9.224/apps/text-cleaner/`）
+- 应用访问链接（如 `http://YOUR_PLATFORM_HOST/apps/text-cleaner/`）
 - 需要登录 PE Space 账号才能访问
 
 ---

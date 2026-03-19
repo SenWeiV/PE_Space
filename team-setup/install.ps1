@@ -1,13 +1,13 @@
 # OpenClaw Team Installer — Windows (PowerShell)
-# Usage: irm http://172.26.88.170:8080/install.ps1 | iex
+# Usage: irm http://YOUR_PLATFORM_HOST:8080/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
-$API_KEY       = "sk-YaE1JNHEOdyqJ5sTWnSpuucCwU88Dimz2oFyBy9BXPfukohd"
-$BASE_URL      = "http://104.238.222.107:3006/v1"
+$API_KEY       = "sk-your-api-key-here"
+$BASE_URL      = "http://YOUR_AI_SERVICE_HOST:3006/v1"
 $CODEX_MODEL   = "gpt-5.2-codex"
 $OPENCLAW_MODEL= "gpt-5.2"
-$SETUP_BASE    = "http://172.26.88.170:8080"
+$SETUP_BASE    = "http://YOUR_PLATFORM_HOST:8080"
 
 function ok($msg)   { Write-Host "  [OK] $msg" -ForegroundColor Green }
 function log($msg)  { Write-Host "   ·  $msg" -ForegroundColor DarkGray }
@@ -165,13 +165,13 @@ ok "PE CLI 依赖已安装"
 
 # ── PE Space 登录 ─────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "  登录 PE Space 平台  (http://120.48.9.224)" -ForegroundColor White
+Write-Host "  登录 PE Space 平台  (http://YOUR_PLATFORM_HOST)" -ForegroundColor White
 Write-Host "  账号格式：姓名全拼，密码：全拼+123"
 Write-Host ""
 try {
-  python $peScript login --url "http://120.48.9.224"
+  python $peScript login --url "http://YOUR_PLATFORM_HOST"
 } catch {
-  warn "PE Space 登录失败，请稍后运行: pe login --url http://120.48.9.224"
+  warn "PE Space 登录失败，请稍后运行: pe login --url http://YOUR_PLATFORM_HOST"
 }
 
 # ── 安装 PE Space Skill ───────────────────────────────────────────────────────
