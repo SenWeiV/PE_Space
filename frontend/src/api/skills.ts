@@ -17,6 +17,7 @@ export interface Skill {
   favorited: boolean;
   version: string;
   changelog: string;
+  source: "internal" | "external";
   files: SkillFile[];
   created_at: string | null;
   updated_at: string | null;
@@ -100,3 +101,9 @@ export const addComment = (name: string, content: string) =>
 
 export const deleteComment = (name: string, index: number) =>
   client.delete<SkillComment[]>(`/skills/${name}/comments/${index}`);
+
+export const getSpecification = () =>
+  client.get<{ content: string }>("/skills/specification");
+
+export const updateSpecification = (content: string) =>
+  client.put<{ content: string }>("/skills/specification", { content });
