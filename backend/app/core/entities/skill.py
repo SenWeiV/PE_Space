@@ -16,5 +16,6 @@ class SkillEntity:
     pinned: bool = False
     version: str = "1.0.0"
     changelog: str = ""
+    source: str = "internal"  # "internal" or "external"
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

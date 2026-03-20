@@ -28,6 +28,7 @@ import {
   DislikeFilled,
   MessageOutlined,
   SendOutlined,
+  FileProtectOutlined,
 } from "@ant-design/icons";
 import ReactMarkdown from "react-markdown";
 import { useAuthStore } from "@/store/authStore";
@@ -45,6 +46,8 @@ import {
   listComments,
   addComment,
   deleteComment,
+  getSpecification,
+  updateSpecification,
   type Skill,
   type SkillComment,
   type SkillStats,
@@ -60,7 +63,6 @@ const CATEGORIES = [
   { value: "other", label: "其他" },
 ];
 const CAT_LABEL: Record<string, string> = { "dev-tools": "开发工具", text: "文本处理", data: "数据分析", automation: "自动化", other: "其他" };
-const CAT_COLOR: Record<string, string> = { "dev-tools": "#722ed1", text: "#1890ff", data: "#13c2c2", automation: "#fa8c16", other: "#8c8c8c" };
 const SORT_OPTIONS = [
   { value: "default", label: "默认排序" },
   { value: "newest", label: "最新发布" },
@@ -122,6 +124,7 @@ export default function SkillsPage() {
   const [newFile, setNewFile] = useState<File | null>(null);
   const [newVersion, setNewVersion] = useState("1.0.0");
   const [newChangelog, setNewChangelog] = useState("");
+  const [newSource, setNewSource] = useState<"internal" | "external">("internal");
 
   // detail
   const [detailOpen, setDetailOpen] = useState(false);
@@ -152,11 +155,20 @@ export default function SkillsPage() {
 
   // misc
   const [cmdOS, setCmdOS] = useState<"mac" | "win">(isWin ? "win" : "mac");
+  const [cmdTarget, setCmdTarget] = useState<"openclaw" | "claude">("openclaw");
   const [statsOpen, setStatsOpen] = useState(false);
   const [stats, setStats] = useState<SkillStats | null>(null);
 
   const [guideOpen, setGuideOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem("skills_banner_dismissed") === "1");
+
+  // specification
+  const [specContent, setSpecContent] = useState("");
+  const [specDraft, setSpecDraft] = useState("");
+  const [specEditing, setSpecEditing] = useState(false);
+  const [specSaving, setSpecSaving] = useState(false);
+  const [specExpanded, setSpecExpanded] = useState(false);
+  const [specLoaded, setSpecLoaded] = useState(false);
 
   /* ── Data ── */
   const fetchSkills = async () => {
@@ -165,6 +177,14 @@ export default function SkillsPage() {
     finally { setLoading(false); }
   };
   useEffect(() => { setLoading(true); fetchSkills(); }, [searchQ, filterCat, sortBy, favOnly]);
+
+  // Load spec on mount
+  useEffect(() => {
+    getSpecification().then((res) => {
+      const c = res.data.content || "";
+      setSpecContent(c); setSpecDraft(c); setSpecLoaded(true);
+    }).catch(() => { setSpecLoaded(true); });
+  }, []);
 
   // Reset page size when filters change
   useEffect(() => { setPageSize(12); }, [searchQ, filterCat, sortBy, favOnly]);
@@ -189,10 +209,10 @@ export default function SkillsPage() {
     try {
       const fd = new FormData();
       fd.append("name", newName.trim()); fd.append("description", newDesc); fd.append("category", newCat);
-      fd.append("version", newVersion); fd.append("changelog", newChangelog); fd.append("file", newFile);
+      fd.append("version", newVersion); fd.append("changelog", newChangelog); fd.append("source", newSource); fd.append("file", newFile);
       await createSkill(fd);
       message.success("发布成功");
-      setCreateOpen(false); setNewName(""); setNewDesc(""); setNewCat("other"); setNewFile(null); setNewVersion("1.0.0"); setNewChangelog("");
+      setCreateOpen(false); setNewName(""); setNewDesc(""); setNewCat("other"); setNewFile(null); setNewVersion("1.0.0"); setNewChangelog(""); setNewSource("internal");
       fetchSkills();
     } catch (e: any) { message.error(e.response?.data?.detail || "发布失败"); }
     finally { setCreateLoading(false); }
@@ -284,28 +304,55 @@ export default function SkillsPage() {
   };
   const closePv = () => { setPvName(""); setPvContent(""); };
 
-  const macCmd = (n: string) => `mkdir -p ~/.openclaw/skills && unzip -o ~/Downloads/${n}.zip -d ~/.openclaw/skills/ && rm ~/Downloads/${n}.zip`;
-  const winCmd = (n: string) => `mkdir %USERPROFILE%\\.openclaw\\skills 2>nul & tar -xf %USERPROFILE%\\Downloads\\${n}.zip -C %USERPROFILE%\\.openclaw\\skills & del %USERPROFILE%\\Downloads\\${n}.zip`;
+  const openSpec = async () => {
+    if (specLoaded) { setSpecExpanded(!specExpanded); return; }
+    try {
+      const c = (await getSpecification()).data.content || "";
+      setSpecContent(c);
+      setSpecDraft(c);
+      setSpecLoaded(true);
+    } catch { /* */ }
+    setSpecExpanded(true);
+  };
+  const handleSaveSpec = async () => {
+    setSpecSaving(true);
+    try {
+      const res = (await updateSpecification(specDraft)).data;
+      setSpecContent(res.content);
+      setSpecEditing(false);
+      message.success("规范已保存");
+    } catch { message.error("保存失败"); }
+    finally { setSpecSaving(false); }
+  };
+
+  const macCmd = (n: string, target: "openclaw" | "claude" = "openclaw") => {
+    const dir = target === "claude" ? "~/.claude/skills" : "~/.openclaw/skills";
+    return `mkdir -p ${dir} && unzip -o ~/Downloads/${n}.zip -d ${dir}/ && rm ~/Downloads/${n}.zip`;
+  };
+  const winCmd = (n: string, target: "openclaw" | "claude" = "openclaw") => {
+    const dir = target === "claude" ? "%USERPROFILE%\\.claude\\skills" : "%USERPROFILE%\\.openclaw\\skills";
+    return `mkdir ${dir} 2>nul & tar -xf %USERPROFILE%\\Downloads\\${n}.zip -C ${dir} & del %USERPROFILE%\\Downloads\\${n}.zip`;
+  };
 
   /* ── Render ── */
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 24px" }}>
 
       {/* ═══ Header ═══ */}
       <div style={{ position: "sticky", top: 0, background: "#fafafa", zIndex: 10, paddingTop: 48, paddingBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.3px" }}>Skills 市场</h1>
-            <p style={{ fontSize: 13, color: "#888", margin: "4px 0 0" }}>团队共享的 AI Skills，下载后放入 ~/.openclaw/skills/ 使用</p>
+                     <p style={{ fontSize: 13, color: "#666", margin: "4px 0 0" }}>团队共享的 AI Skills，下载后放入 Agent 的 skills 目录即可使用</p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <div style={{ textAlign: "center" }}>
               <Tooltip title="操作指南" mouseEnterDelay={TIP_DELAY}>
-                <button onClick={() => setGuideOpen(true)} style={{ ...pillBtn(false), borderColor: "#b388ff", color: "#7c4dff" }}>
+                <button onClick={() => setGuideOpen(true)} style={{ ...pillBtn(false), borderColor: "#d9d9d9", color: "#666" }}>
                   <QuestionCircleOutlined /> 指南
                 </button>
               </Tooltip>
-              <span style={{ fontSize: 10, color: "#b388ff", whiteSpace: "nowrap" }}>↑ 首次使用点这里</span>
+              <div style={{ fontSize: 10, color: "#999", marginTop: 3 }}>↑ 新手入口</div>
             </div>
             {isAdmin && (
               <Tooltip title="查看 Skills 下载量、发布者等统计数据" mouseEnterDelay={TIP_DELAY}>
@@ -317,7 +364,7 @@ export default function SkillsPage() {
             <Tooltip title="上传并发布一个新的 Skill" mouseEnterDelay={TIP_DELAY}>
               <button
                 onClick={() => setCreateOpen(true)}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 20px", height: 36, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 20px", height: 36, background: "#2c2c2c", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}
               >
                 <PlusOutlined /> 发布 Skill
               </button>
@@ -327,19 +374,19 @@ export default function SkillsPage() {
 
         {/* Stats panel */}
         {isAdmin && statsOpen && stats && (
-          <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #eee", padding: "16px 24px", marginBottom: 16, display: "grid", gridTemplateColumns: "100px 100px 1fr 1fr 1fr", gap: 20, alignItems: "start" }}>
-            <div><div style={{ fontSize: 28, fontWeight: 700 }}>{stats.total_skills}</div><div style={{ fontSize: 11, color: "#999" }}>Skills</div></div>
-            <div><div style={{ fontSize: 28, fontWeight: 700 }}>{stats.total_downloads}</div><div style={{ fontSize: 11, color: "#999" }}>下载量</div></div>
+          <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #eee", padding: "16px 24px", marginBottom: 16, display: "grid", gridTemplateColumns: "100px 100px 1fr 1fr 1fr", gap: 24, alignItems: "start" }}>
+            <div><div style={{ fontSize: 28, fontWeight: 700 }}>{stats.total_skills}</div><div style={{ fontSize: 11, color: "#666" }}>Skills</div></div>
+            <div><div style={{ fontSize: 28, fontWeight: 700 }}>{stats.total_downloads}</div><div style={{ fontSize: 11, color: "#666" }}>下载量</div></div>
             {[{ title: "下载 Top 5", items: stats.top_downloaded.map((t) => [t.name, String(t.downloads)]) },
               { title: "发布者", items: stats.top_authors.map((a) => [a.name, `${a.count} 个`]) },
               { title: "分类", items: Object.entries(stats.category_breakdown).map(([k, v]) => [CAT_LABEL[k] || k, String(v)]) },
             ].map((sec) => (
               <div key={sec.title} style={{ borderLeft: "1px solid #f0f0f0", paddingLeft: 16 }}>
-                <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>{sec.title}</div>
+                <div style={{ fontSize: 11, color: "#666", marginBottom: 4 }}>{sec.title}</div>
                 {sec.items.map(([k, v]) => (
                   <div key={k} style={{ fontSize: 12, display: "flex", justifyContent: "space-between", lineHeight: "22px" }}>
                     <span style={{ color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k}</span>
-                    <span style={{ color: "#aaa", flexShrink: 0, marginLeft: 8 }}>{v}</span>
+                    <span style={{ color: "#999", flexShrink: 0, marginLeft: 8 }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -349,11 +396,11 @@ export default function SkillsPage() {
 
         {/* Filters */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Input ref={searchRef as any} prefix={<SearchOutlined style={{ color: "#bbb" }} />} placeholder='搜索名称或描述... ( 按 / 聚焦 )' allowClear style={{ width: 280 }} onChange={(e) => setSearchQ(e.target.value)} />
+          <Input ref={searchRef as any} prefix={<SearchOutlined style={{ color: "#999" }} />} placeholder='搜索名称或描述... ( 按 / 聚焦 )' allowClear style={{ width: 280 }} onChange={(e) => setSearchQ(e.target.value)} />
           <Select value={filterCat} onChange={setFilterCat} options={CATEGORIES} style={{ width: 120 }} />
           <Select value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} style={{ width: 120 }} />
           <Tooltip title="只显示我收藏的 Skills" mouseEnterDelay={TIP_DELAY}>
-            <button onClick={() => setFavOnly(!favOnly)} style={pillBtn(favOnly, "#d48806")}>
+            <button onClick={() => setFavOnly(!favOnly)} style={pillBtn(favOnly, "#2c2c2c")}>
               {favOnly ? <StarFilled /> : <StarOutlined />} 收藏
             </button>
           </Tooltip>
@@ -362,11 +409,11 @@ export default function SkillsPage() {
 
       {/* ═══ Bootstrap Banner ═══ */}
       {!bannerDismissed && (
-        <div style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: 12, padding: "20px 24px", marginBottom: 16, display: "flex", alignItems: "center", gap: 20 }}>
+        <div style={{ background: "#2c2c2c", borderRadius: 12, padding: "20px 24px", marginBottom: 16, display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ flex: 1, color: "#fff" }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>🦞 首次使用？让 openclaw 学会操作 Skills 市场</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>🦞 首次使用？让 Agent 学会操作 Skills 市场</div>
             <div style={{ fontSize: 13, opacity: 0.85 }}>
-              下载「openclaw-skills-guide」并放入 ~/.openclaw/skills/，之后你就可以直接让 openclaw 帮你搜索和安装 Skills 了
+              下载引导 Skill 放入 Agent 的 skills 目录（openclaw / Claude Code 等），之后可以直接让 Agent 帮你搜索和安装 Skills
             </div>
           </div>
           <Tooltip title="下载引导 Skill 并复制安装命令" mouseEnterDelay={TIP_DELAY}>
@@ -381,23 +428,89 @@ export default function SkillsPage() {
                   : `mkdir -p ~/.openclaw/skills && unzip -o ~/Downloads/openclaw-skills-guide.zip -d ~/.openclaw/skills/ && rm ~/Downloads/openclaw-skills-guide.zip`;
                 navigator.clipboard.writeText(cmd).then(() => message.success("下载成功，安装命令已复制！请打开终端粘贴执行", 4));
               }}
-              style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 20px", height: 38, background: "#fff", color: "#764ba2", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+              style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 20px", height: 38, background: "#fff", color: "#2c2c2c", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
             >
               <DownloadOutlined /> 一键下载
             </button>
           </Tooltip>
           <button
             onClick={() => { setBannerDismissed(true); localStorage.setItem("skills_banner_dismissed", "1"); }}
-            style={{ flexShrink: 0, background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 16, padding: 4 }}
+            style={{ flexShrink: 0, background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16, padding: 4 }}
           >
             ✕
           </button>
         </div>
       )}
 
+      {/* ═══ Specification Section ═══ */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #eee", marginBottom: 16, overflow: "hidden" }}>
+        <div
+          onClick={() => { if (!specEditing) openSpec(); }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", cursor: specEditing ? "default" : "pointer", transition: "background 0.15s" }}
+          onMouseEnter={(e) => { if (!specEditing) (e.currentTarget as HTMLElement).style.background = "#fafafa"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FileProtectOutlined style={{ fontSize: 16, color: "#1a1a1a" }} />
+            <span style={{ fontSize: 15, fontWeight: 600, color: "#1a1a1a" }}>Skills 发布规范</span>
+            {!specContent && specLoaded && <span style={{ fontSize: 12, color: "#999" }}>（暂未编写）</span>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {specContent && !specExpanded && (
+              <span style={{ fontSize: 12, color: "#999" }}>点击展开查看</span>
+            )}
+            <span style={{ fontSize: 12, color: "#999", transition: "transform 0.2s", transform: specExpanded ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
+          </div>
+        </div>
+        {specExpanded && (
+          <div style={{ borderTop: "1px solid #f0f0f0", padding: "16px 20px" }}>
+            {specEditing ? (
+              <>
+                <Input.TextArea
+                  rows={14}
+                  value={specDraft}
+                  onChange={(e) => setSpecDraft(e.target.value)}
+                  placeholder={"在此编写 Skills 发布规范...\n\n例如：\n- Skill 命名规范\n- SKILL.md 内容要求\n- 文件结构标准\n- 分类选择指南"}
+                  style={{ fontSize: 13, lineHeight: 1.8, fontFamily: "inherit" }}
+                  autoFocus
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                  <button onClick={() => { setSpecDraft(specContent); setSpecEditing(false); }} style={{ padding: "0 16px", height: 32, background: "#fff", color: "#666", border: "1px solid #d9d9d9", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>取消</button>
+                  <button onClick={handleSaveSpec} disabled={specSaving} style={{ padding: "0 16px", height: 32, background: "#2c2c2c", color: "#fff", border: "none", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>{specSaving ? "保存中..." : "保存"}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {specContent ? (
+                  <div style={{ fontSize: 14, lineHeight: 1.8, color: "#333", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{specContent}</div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "24px 0", color: "#999", fontSize: 13 }}>
+                    {isAdmin ? "暂未编写规范，点击下方编辑按钮开始" : "管理员暂未编写规范"}
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                  {specContent && (
+                    <Tooltip title="复制规范全文" mouseEnterDelay={TIP_DELAY}>
+                      <button onClick={() => navigator.clipboard.writeText(specContent).then(() => message.success("已复制规范内容"))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: 32, background: "#fff", color: "#666", border: "1px solid #d9d9d9", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
+                        <CopyOutlined /> 复制
+                      </button>
+                    </Tooltip>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => setSpecEditing(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: 32, background: "#2c2c2c", color: "#fff", border: "none", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
+                      <EditOutlined /> 编辑规范
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ═══ Grid ═══ */}
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, paddingBottom: 40 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16, paddingBottom: 40 }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} style={{ background: "#fff", borderRadius: 12, border: "1px solid #eee", padding: "18px 20px 14px" }}>
               <Skeleton active title={{ width: "60%" }} paragraph={{ rows: 2, width: ["100%", "80%"] }} />
@@ -409,14 +522,14 @@ export default function SkillsPage() {
           <Empty description="暂无 Skills" />
           <button
             onClick={() => setCreateOpen(true)}
-            style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 20px", height: 36, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}
+            style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 20px", height: 36, background: "#2c2c2c", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}
           >
             <PlusOutlined /> 发布第一个 Skill
           </button>
         </div>
       ) : (
         <>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
           {skills.slice(0, pageSize).map((s) => (
               <div
                 key={s.name} onClick={() => openDetail(s)}
@@ -427,14 +540,15 @@ export default function SkillsPage() {
                 {/* Name + category */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-                  <Tag color={CAT_COLOR[s.category] || "#8c8c8c"} style={{ fontSize: 10, lineHeight: "16px", borderRadius: 4, flexShrink: 0, margin: 0 }}>{CAT_LABEL[s.category] || s.category}</Tag>
+                  <Tag style={{ fontSize: 10, lineHeight: "16px", borderRadius: 4, flexShrink: 0, margin: 0 }}>{CAT_LABEL[s.category] || s.category}</Tag>
+                  <Tag style={{ fontSize: 10, lineHeight: "16px", borderRadius: 4, flexShrink: 0, margin: 0 }}>{s.source === "external" ? "外部" : "内部"}</Tag>
                   <span style={{ flex: 1 }} />
-                  {s.pinned && <PushpinFilled style={{ fontSize: 12, color: "#fa8c16", flexShrink: 0 }} />}
+                  {s.pinned && <PushpinFilled style={{ fontSize: 12, color: "#999", flexShrink: 0 }} />}
                   <span style={{ fontSize: 10, color: "#1a1a1a", flexShrink: 0 }}>🔍 点击查看详情</span>
                 </div>
 
                 {/* Description */}
-                <p style={{ fontSize: 13, color: "#888", margin: 0, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                <p style={{ fontSize: 13, color: "#666", margin: 0, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                   {s.description || "暂无描述"}
                 </p>
 
@@ -443,16 +557,16 @@ export default function SkillsPage() {
                 {/* Footer */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 12, color: "#bbb" }}>{s.author_name || "system"} · {s.downloads} 次下载</span>
+                    <span style={{ fontSize: 12, color: "#999" }}>{s.author_name || "system"} · {s.downloads} 次下载</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12 }} onClick={(e) => e.stopPropagation()}>
                       <Tooltip title={s.my_vote === "up" ? "取消推荐" : "推荐"} mouseEnterDelay={TIP_DELAY}>
-                        <button onClick={(e) => handleVote(s, "up", e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: s.my_vote === "up" ? "#52c41a" : "#ccc", fontSize: 13, display: "flex", alignItems: "center" }}>
+                        <button onClick={(e) => handleVote(s, "up", e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: s.my_vote === "up" ? "#333" : "#999", fontSize: 13, display: "flex", alignItems: "center" }}>
                           {s.my_vote === "up" ? <LikeFilled /> : <LikeOutlined />}
                         </button>
                       </Tooltip>
-                      {(s.ups > 0 || s.downs > 0) && <span style={{ color: "#bbb", fontSize: 11 }}>{s.ups}</span>}
+                      {(s.ups > 0 || s.downs > 0) && <span style={{ color: "#999", fontSize: 11 }}>{s.ups}</span>}
                       <Tooltip title={s.my_vote === "down" ? "取消不推荐" : "不推荐"} mouseEnterDelay={TIP_DELAY}>
-                        <button onClick={(e) => handleVote(s, "down", e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: s.my_vote === "down" ? "#ff4d4f" : "#ccc", fontSize: 13, display: "flex", alignItems: "center" }}>
+                        <button onClick={(e) => handleVote(s, "down", e)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: s.my_vote === "down" ? "#333" : "#999", fontSize: 13, display: "flex", alignItems: "center" }}>
                           {s.my_vote === "down" ? <DislikeFilled /> : <DislikeOutlined />}
                         </button>
                       </Tooltip>
@@ -460,25 +574,25 @@ export default function SkillsPage() {
                   </div>
                   <div style={{ display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
                     <Tooltip title={s.has_update ? "此 Skill 有新版本，重新下载以更新" : s.favorited ? "取消收藏" : "收藏此 Skill"} mouseEnterDelay={TIP_DELAY}>
-                      <button onClick={(e) => handleFav(s, e)} style={{ ...iconBtn, color: s.favorited ? "#faad14" : "#d9d9d9", borderColor: s.favorited ? "#faad14" : "#f0f0f0", position: "relative" }}>
+                      <button onClick={(e) => handleFav(s, e)} style={{ ...iconBtn, color: s.favorited ? "#333" : "#d9d9d9", borderColor: s.favorited ? "#d0d0d0" : "#f0f0f0", position: "relative" }}>
                         {s.favorited ? <StarFilled /> : <StarOutlined />}
                         {s.has_update && <span style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "#ff4d4f", border: "1px solid #fff" }} />}
                       </button>
                     </Tooltip>
                     {canEdit(s) && (
                       <Tooltip title="删除此 Skill" mouseEnterDelay={TIP_DELAY}>
-                        <button onClick={(e) => handleDelete(s, e)} style={{ ...iconBtn, color: "#ff4d4f", borderColor: "#ffd6d6" }}><DeleteOutlined /></button>
+                        <button onClick={(e) => handleDelete(s, e)} style={{ ...iconBtn, color: "#999", borderColor: "#e5e5e5" }}><DeleteOutlined /></button>
                       </Tooltip>
                     )}
                     {isAdmin && (
                       <Tooltip title={s.pinned ? "取消推荐" : "设为推荐"} mouseEnterDelay={TIP_DELAY}>
-                        <button onClick={(e) => handlePin(s, e)} style={{ ...iconBtn, color: s.pinned ? "#fa8c16" : "#d9d9d9", borderColor: s.pinned ? "#ffe7ba" : "#f0f0f0" }}>
+                        <button onClick={(e) => handlePin(s, e)} style={{ ...iconBtn, color: s.pinned ? "#333" : "#d9d9d9", borderColor: s.pinned ? "#d0d0d0" : "#f0f0f0" }}>
                           {s.pinned ? <PushpinFilled /> : <PushpinOutlined />}
                         </button>
                       </Tooltip>
                     )}
                     <Tooltip title="下载 Skill 并复制安装命令，下载后打开终端粘贴即可安装" mouseEnterDelay={TIP_DELAY}>
-                      <button onClick={(e) => { handleDownload(s.name, e); const cmd = isWin ? winCmd(s.name) : macCmd(s.name); navigator.clipboard.writeText(cmd).then(() => message.success("下载成功，安装命令已复制！请打开终端粘贴执行", 4)); }} style={{ ...iconBtn, background: "#1a1a1a", color: "#fff", borderColor: "#1a1a1a" }}>
+                      <button onClick={(e) => { handleDownload(s.name, e); const cmd = isWin ? winCmd(s.name, cmdTarget) : macCmd(s.name, cmdTarget); navigator.clipboard.writeText(cmd).then(() => message.success("下载成功，安装命令已复制！请打开终端粘贴执行", 4)); }} style={{ ...iconBtn, background: "#2c2c2c", color: "#fff", borderColor: "#2c2c2c" }}>
                         <DownloadOutlined />
                       </button>
                     </Tooltip>
@@ -500,7 +614,7 @@ export default function SkillsPage() {
 
         {/* External Skills */}
         <div style={{ textAlign: "center", padding: "80px 0 48px" }}>
-          <span style={{ fontSize: 13, color: "#bbb" }}>找不到想要的 Skill？去外部广场看看</span>
+          <span style={{ fontSize: 13, color: "#999" }}>找不到想要的 Skill？去外部广场看看</span>
           <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 12 }}>
             {[
               { name: "Smithery", url: "https://smithery.ai", desc: "MCP 工具市场" },
@@ -517,8 +631,8 @@ export default function SkillsPage() {
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#eee"; (e.currentTarget as HTMLElement).style.background = "#fafafa"; }}
               >
                 <span style={{ fontWeight: 500, color: "#333" }}>{site.name}</span>
-                <span style={{ color: "#bbb" }}>{site.desc}</span>
-                <span style={{ color: "#ccc", fontSize: 10 }}>↗</span>
+                <span style={{ color: "#999" }}>{site.desc}</span>
+                <span style={{ color: "#999", fontSize: 10 }}>↗</span>
               </a>
             ))}
           </div>
@@ -530,15 +644,16 @@ export default function SkillsPage() {
       <Drawer title={null} open={detailOpen} onClose={() => { setDetailOpen(false); closePv(); }} width={620} styles={{ body: { padding: 0 } }}>
         {detailSkill && (() => {
           const sf = sortFiles(detailSkill.files);
-          const cmd = cmdOS === "mac" ? macCmd(detailSkill.name) : winCmd(detailSkill.name);
+          const cmd = (cmdOS === "mac" ? macCmd : winCmd)(detailSkill.name, cmdTarget);
           return (
             <div style={{ padding: "28px 28px 40px" }}>
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
                 <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>{detailSkill.name}</h2>
-                <Tag color={CAT_COLOR[detailSkill.category]}>{CAT_LABEL[detailSkill.category] || detailSkill.category}</Tag>
+                <Tag>{CAT_LABEL[detailSkill.category] || detailSkill.category}</Tag>
+                <Tag>{detailSkill.source === "external" ? "外部" : "内部"}</Tag>
                 {detailSkill.version && <Tag style={{ fontSize: 11 }}>v{detailSkill.version}</Tag>}
-                {detailSkill.pinned && <Tag color="orange">推荐</Tag>}
+                {detailSkill.pinned && <Tag>推荐</Tag>}
               </div>
               <p style={{ fontSize: 14, color: "#666", margin: "0 0 16px", lineHeight: 1.6 }}>{detailSkill.description || "暂无描述"}</p>
 
@@ -552,7 +667,7 @@ export default function SkillsPage() {
               {/* Actions — two rows */}
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                 <Tooltip title="下载 Skill 压缩包到本地" mouseEnterDelay={TIP_DELAY}>
-                  <button onClick={(e) => handleDownload(detailSkill.name, e)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 20px", height: 36, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
+                  <button onClick={(e) => handleDownload(detailSkill.name, e)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 20px", height: 36, background: "#2c2c2c", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
                     <DownloadOutlined /> 下载 Skill
                   </button>
                 </Tooltip>
@@ -564,7 +679,7 @@ export default function SkillsPage() {
                       </button>
                     </Tooltip>
                     <Tooltip title="修改版本号和更新日志" mouseEnterDelay={TIP_DELAY}>
-                      <button onClick={(e) => { setDetailOpen(false); openEditChangelog(detailSkill, e); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: 36, background: "#fff", color: "#389e0d", border: "1px solid #b7eb8f", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>
+                      <button onClick={(e) => { setDetailOpen(false); openEditChangelog(detailSkill, e); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: 36, background: "#fff", color: "#333", border: "1px solid #ddd", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>
                         <HistoryOutlined /> 更新日志
                       </button>
                     </Tooltip>
@@ -574,8 +689,8 @@ export default function SkillsPage() {
 
               {/* Changelog badge */}
               {detailSkill.changelog && (
-                <div style={{ background: "#f6ffed", border: "1px solid #d9f7be", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 13, display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <Tag color="green" style={{ flexShrink: 0, margin: 0 }}>v{detailSkill.version}</Tag>
+                <div style={{ background: "#f9f9f9", border: "1px solid #eee", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 13, display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <Tag style={{ flexShrink: 0, margin: 0 }}>v{detailSkill.version}</Tag>
                   <span style={{ color: "#555" }}>{detailSkill.changelog}</span>
                 </div>
               )}
@@ -585,6 +700,14 @@ export default function SkillsPage() {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                   <span style={{ fontSize: 12, color: "#666", fontWeight: 500 }}>安装命令</span>
                   <div style={{ display: "flex", gap: 4 }}>
+                    {(["openclaw", "claude"] as const).map((t) => (
+                      <Tooltip key={t} title={t === "openclaw" ? "安装到 openclaw" : "安装到 Claude Code"} mouseEnterDelay={TIP_DELAY}>
+                        <button onClick={() => setCmdTarget(t)} style={pillBtn(cmdTarget === t, "#444")}>
+                          {t === "openclaw" ? "openclaw" : "Claude Code"}
+                        </button>
+                      </Tooltip>
+                    ))}
+                    <span style={{ width: 1, background: "#333", margin: "0 4px" }} />
                     {(["mac", "win"] as const).map((os) => (
                       <Tooltip key={os} title={os === "mac" ? "显示 macOS 安装命令" : "显示 Windows 安装命令"} mouseEnterDelay={TIP_DELAY}>
                         <button onClick={() => setCmdOS(os)} style={pillBtn(cmdOS === os, "#444")}>
@@ -598,7 +721,7 @@ export default function SkillsPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <code style={{ flex: 1, fontSize: 12, color: "#a3e635", fontFamily: "'SF Mono','Fira Code',monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cmd}</code>
                   <Tooltip title="复制安装命令到剪贴板" mouseEnterDelay={TIP_DELAY}>
-                    <button onClick={() => navigator.clipboard.writeText(cmd).then(() => message.success("已复制"))} style={{ flexShrink: 0, background: "#2a2a2a", border: "1px solid #3a3a3a", borderRadius: 6, padding: "4px 12px", cursor: "pointer", color: "#aaa", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                    <button onClick={() => navigator.clipboard.writeText(cmd).then(() => message.success("已复制"))} style={{ flexShrink: 0, background: "#2a2a2a", border: "1px solid #3a3a3a", borderRadius: 6, padding: "4px 12px", cursor: "pointer", color: "#999", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
                       <CopyOutlined /> 复制
                     </button>
                   </Tooltip>
@@ -610,7 +733,7 @@ export default function SkillsPage() {
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#1a1a1a", marginBottom: 10 }}>
                     <FileZipOutlined /> {sf.length} 个文件
-                    <span style={{ fontSize: 12, fontWeight: 400, color: "#bbb" }}>- 点击预览</span>
+                    <span style={{ fontSize: 12, fontWeight: 400, color: "#999" }}>- 点击预览</span>
                   </div>
                   <div style={{ borderRadius: 10, border: "1px solid #f0f0f0", overflow: "hidden" }}>
                     {sf.map((f, idx) => {
@@ -631,11 +754,11 @@ export default function SkillsPage() {
                             onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "#fafafa"; }}
                           >
                             <span style={{ display: "flex", alignItems: "center", gap: 6, color: active ? "#1677ff" : "#333", fontWeight: active ? 500 : 400 }}>
-                              <FileTextOutlined style={{ color: active ? "#1677ff" : "#bbb" }} />
+                              <FileTextOutlined style={{ color: active ? "#1677ff" : "#999" }} />
                               {f.name}
                             </span>
                             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ color: "#bbb", fontSize: 12 }}>{fmtSize(f.size)}</span>
+                              <span style={{ color: "#999", fontSize: 12 }}>{fmtSize(f.size)}</span>
                               <EyeOutlined style={{ color: active ? "#1677ff" : "#ddd", fontSize: 12 }} />
                             </span>
                           </div>
@@ -667,7 +790,7 @@ export default function SkillsPage() {
               {/* Comments */}
               <div style={{ marginTop: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#1a1a1a", marginBottom: 12 }}>
-                  <MessageOutlined /> 评论 {comments.length > 0 && <span style={{ fontWeight: 400, color: "#bbb" }}>({comments.length})</span>}
+                  <MessageOutlined /> 评论 {comments.length > 0 && <span style={{ fontWeight: 400, color: "#999" }}>({comments.length})</span>}
                 </div>
                 {/* Input */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -683,7 +806,7 @@ export default function SkillsPage() {
                     <button
                       onClick={handleAddComment}
                       disabled={commentLoading || !commentText.trim()}
-                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 14px", height: 32, background: commentText.trim() ? "#1a1a1a" : "#f0f0f0", color: commentText.trim() ? "#fff" : "#bbb", border: "none", borderRadius: 6, fontSize: 13, cursor: commentText.trim() ? "pointer" : "not-allowed" }}
+                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 14px", height: 32, background: commentText.trim() ? "#2c2c2c" : "#f0f0f0", color: commentText.trim() ? "#fff" : "#999", border: "none", borderRadius: 6, fontSize: 13, cursor: commentText.trim() ? "pointer" : "not-allowed" }}
                     >
                       <SendOutlined />
                     </button>
@@ -691,7 +814,7 @@ export default function SkillsPage() {
                 </div>
                 {/* List */}
                 {comments.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "#ccc", textAlign: "center", padding: "8px 0" }}>暂无评论</div>
+                  <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "8px 0" }}>暂无评论</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {comments.map((c, i) => (
@@ -702,10 +825,10 @@ export default function SkillsPage() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ fontWeight: 500, color: "#333" }}>{c.user_name}</span>
-                            <span style={{ fontSize: 11, color: "#ccc" }}>{new Date(c.created_at).toLocaleDateString("zh-CN")}</span>
+                            <span style={{ fontSize: 11, color: "#999" }}>{new Date(c.created_at).toLocaleDateString("zh-CN")}</span>
                             {(c.user_id === user?.id || isAdmin) && (
                               <Tooltip title="删除此评论" mouseEnterDelay={TIP_DELAY}>
-                                <button onClick={() => handleDeleteComment(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#ccc", padding: 0 }}>
+                                <button onClick={() => handleDeleteComment(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#999", padding: 0 }}>
                                   <DeleteOutlined />
                                 </button>
                               </Tooltip>
@@ -736,6 +859,7 @@ export default function SkillsPage() {
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}><label style={label}>分类</label><Select value={newCat} onChange={setNewCat} options={CATEGORIES.filter((c) => c.value !== "")} style={{ width: "100%" }} /></div>
+            <div style={{ flex: 1 }}><label style={label}>来源</label><Select value={newSource} onChange={setNewSource} options={[{ value: "internal", label: "内部开发" }, { value: "external", label: "外部下载" }]} style={{ width: "100%" }} /></div>
             <div style={{ flex: 1 }}><label style={label}>版本号</label><Input placeholder="1.0.0" value={newVersion} onChange={(e) => setNewVersion(e.target.value)} /></div>
           </div>
           <div>
@@ -745,9 +869,9 @@ export default function SkillsPage() {
           <div>
             <label style={label}>文件包 <span style={{ color: "#ff4d4f" }}>*</span></label>
             <Upload.Dragger accept=".zip" maxCount={1} beforeUpload={(file) => { setNewFile(file); return false; }} onRemove={() => setNewFile(null)} fileList={newFile ? [{ uid: "-1", name: newFile.name, status: "done" as const, size: newFile.size }] : []}>
-              <p style={{ color: "#bbb", marginBottom: 4 }}><InboxOutlined style={{ fontSize: 28 }} /></p>
+              <p style={{ color: "#999", marginBottom: 4 }}><InboxOutlined style={{ fontSize: 28 }} /></p>
               <p style={{ fontSize: 13, color: "#333" }}>拖拽或点击上传 .zip</p>
-              <p style={{ fontSize: 11, color: "#bbb" }}>需包含 SKILL.md 主文件</p>
+              <p style={{ fontSize: 11, color: "#999" }}>需包含 SKILL.md 主文件</p>
             </Upload.Dragger>
           </div>
         </div>
@@ -761,7 +885,7 @@ export default function SkillsPage() {
           <div>
             <label style={label}>替换文件包（可选）</label>
             <Upload.Dragger accept=".zip" maxCount={1} beforeUpload={(file) => { setEditFile(file); return false; }} onRemove={() => setEditFile(null)} fileList={editFile ? [{ uid: "-1", name: editFile.name, status: "done" as const, size: editFile.size }] : []}>
-              <p style={{ color: "#bbb", marginBottom: 4 }}><InboxOutlined style={{ fontSize: 28 }} /></p>
+              <p style={{ color: "#999", marginBottom: 4 }}><InboxOutlined style={{ fontSize: 28 }} /></p>
               <p style={{ fontSize: 13, color: "#333" }}>拖拽或点击上传新的 .zip</p>
             </Upload.Dragger>
           </div>
@@ -780,10 +904,10 @@ export default function SkillsPage() {
       <Modal title="Skills 市场操作指南" open={guideOpen} onCancel={() => setGuideOpen(false)} footer={null} width={560}>
         <div style={{ marginTop: 12, fontSize: 14, lineHeight: 1.8, color: "#333" }}>
           {/* Bootstrap */}
-          <div style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", borderRadius: 10, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ background: "#2c2c2c", borderRadius: 10, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ flex: 1, color: "#fff" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>🦞 让 openclaw 学会操作 Skills 市场</div>
-              <div style={{ fontSize: 12, opacity: 0.85 }}>下载此 Skill 放入 ~/.openclaw/skills/，之后可以直接让 openclaw 搜索和安装 Skills</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>🦞 让 Agent 学会操作 Skills 市场</div>
+              <div style={{ fontSize: 12, opacity: 0.85 }}>下载此 Skill 放入 Agent 的 skills 目录（openclaw / Claude Code 等），即可让 Agent 搜索和安装 Skills</div>
             </div>
             <button
               onClick={() => {
@@ -796,7 +920,7 @@ export default function SkillsPage() {
                   : `mkdir -p ~/.openclaw/skills && unzip -o ~/Downloads/openclaw-skills-guide.zip -d ~/.openclaw/skills/ && rm ~/Downloads/openclaw-skills-guide.zip`;
                 navigator.clipboard.writeText(cmd).then(() => message.success("下载成功，安装命令已复制！请打开终端粘贴执行", 4));
               }}
-              style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 16px", height: 34, background: "#fff", color: "#764ba2", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 16px", height: 34, background: "#fff", color: "#2c2c2c", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
             >
               <DownloadOutlined /> 一键下载
             </button>
@@ -810,7 +934,12 @@ export default function SkillsPage() {
               <strong>打开终端</strong>（不知道终端是什么？往下看）
             </li>
             <li>在终端中按 <code style={{ background: "#f5f5f5", padding: "1px 6px", borderRadius: 4, fontSize: 13 }}>{isWin ? "Ctrl + V" : "Cmd + V"}</code> 粘贴，然后按回车执行</li>
-            <li>安装完成！Skill 会被放入 <code style={{ background: "#f5f5f5", padding: "1px 6px", borderRadius: 4, fontSize: 13 }}>~/.openclaw/skills/</code> 目录</li>
+            <li>安装完成！Skill 会被放入对应 agent 的 skills 目录：
+              <ul style={{ paddingLeft: 20, margin: "4px 0", fontSize: 13, color: "#666" }}>
+                <li>openclaw → <code style={{ background: "#f5f5f5", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>~/.openclaw/skills/</code></li>
+                <li>Claude Code → <code style={{ background: "#f5f5f5", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>~/.claude/skills/</code></li>
+              </ul>
+            </li>
           </ol>
 
           <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>二、如何打开终端</h3>
@@ -829,29 +958,42 @@ export default function SkillsPage() {
             </div>
           </div>
 
-          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>三、其他功能</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>三、支持哪些 Agent</h3>
+          <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px" }}>
+            Skills 本质是一组规则文件（SKILL.md 为主），可被各种 AI Agent / 编码助手读取和使用。目前支持：
+          </p>
+          <ul style={{ paddingLeft: 20, margin: "0 0 20px", fontSize: 13, color: "#666" }}>
+            <li><strong>openclaw（龙虾）</strong> — 安装到 <code style={{ background: "#f5f5f5", padding: "1px 4px", borderRadius: 3, fontSize: 12 }}>~/.openclaw/skills/</code></li>
+            <li><strong>Claude Code</strong> — 安装到 <code style={{ background: "#f5f5f5", padding: "1px 4px", borderRadius: 3, fontSize: 12 }}>~/.claude/skills/</code></li>
+            <li><strong>其他 Agent</strong> — 只要 Agent 支持读取 skills / rules 目录，均可手动将下载的 Skill 放入其对应目录使用（如 Cursor、Windsurf 等）</li>
+          </ul>
+          <div style={{ background: "#f9f9f9", border: "1px solid #eee", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 13, color: "#666" }}>
+            💡 下载时可在详情页的安装命令区域切换目标 Agent（openclaw / Claude Code），系统会自动生成对应的安装命令。
+          </div>
+
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>四、其他功能</h3>
           <ul style={{ paddingLeft: 20, margin: "0 0 20px", fontSize: 13, color: "#666" }}>
             <li><StarOutlined /> 收藏 — 把常用的 Skill 加入收藏夹，方便快速找到</li>
             <li><EyeOutlined /> 预览 — 在详情页点击文件名可直接预览内容，无需下载</li>
             <li><PushpinOutlined /> 推荐 — 管理员可将优质 Skill 置顶推荐给所有人</li>
           </ul>
 
-          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>四、CLI 接口（开发者）</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>五、CLI 接口（开发者）</h3>
           <p style={{ fontSize: 13, color: "#666", margin: "0 0 8px" }}>
-            openclaw 可通过以下 API 直接管理 Skills，无需打开浏览器：
+            openclaw / Claude Code 可通过以下 API 直接管理 Skills，无需打开浏览器：
           </p>
           <div style={{ background: "#141414", borderRadius: 8, padding: "12px 16px", marginBottom: 20, fontSize: 12, fontFamily: "'SF Mono','Fira Code',monospace", color: "#a3e635", lineHeight: 2, overflowX: "auto" }}>
-            <div><span style={{ color: "#888" }}># 列出所有 Skills</span></div>
+            <div><span style={{ color: "#666" }}># 列出所有 Skills</span></div>
             <div>curl {window.location.origin}/api/cli/skills</div>
-            <div style={{ marginTop: 4 }}><span style={{ color: "#888" }}># 搜索</span></div>
+            <div style={{ marginTop: 4 }}><span style={{ color: "#666" }}># 搜索</span></div>
             <div>curl {window.location.origin}/api/cli/skills?q=keyword</div>
-            <div style={{ marginTop: 4 }}><span style={{ color: "#888" }}># 查看详情</span></div>
+            <div style={{ marginTop: 4 }}><span style={{ color: "#666" }}># 查看详情</span></div>
             <div>curl {window.location.origin}/api/cli/skills/skill-name</div>
-            <div style={{ marginTop: 4 }}><span style={{ color: "#888" }}># 下载安装</span></div>
+            <div style={{ marginTop: 4 }}><span style={{ color: "#666" }}># 下载安装</span></div>
             <div>curl -o skill.zip {window.location.origin}/api/cli/skills/skill-name/install</div>
           </div>
 
-          <div style={{ marginTop: 20, padding: "10px 14px", background: "#fffbe6", border: "1px solid #ffe58f", borderRadius: 8, fontSize: 13, color: "#ad6800" }}>
+          <div style={{ marginTop: 20, padding: "10px 14px", background: "#f9f9f9", border: "1px solid #eee", borderRadius: 8, fontSize: 13, color: "#666" }}>
             💡 如果你的浏览器下载路径不是默认的 Downloads 文件夹，请在粘贴命令后手动修改路径再执行。
           </div>
         </div>

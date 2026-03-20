@@ -53,6 +53,7 @@ def _skill_to_dict(s: SkillEntity) -> dict:
         "pinned": s.pinned,
         "version": s.version,
         "changelog": s.changelog,
+        "source": s.source,
         "files": files,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
@@ -173,6 +174,42 @@ def list_skills(
     return result
 
 
+# ── Specification (admin-editable, stored in SystemConfig) ──
+
+SPEC_KEY = "skills_specification"
+
+
+@router.get("/specification")
+def get_specification(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    m = db.query(SystemConfig).filter(SystemConfig.key == SPEC_KEY).first()
+    return {"content": m.value if m else ""}
+
+
+class SpecBody(BaseModel):
+    content: str
+
+
+@router.put("/specification")
+def update_specification(
+    body: SpecBody,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    now = datetime.utcnow()
+    m = db.query(SystemConfig).filter(SystemConfig.key == SPEC_KEY).first()
+    if m:
+        m.value = body.content
+        m.updated_at = now
+    else:
+        m = SystemConfig(key=SPEC_KEY, value=body.content, updated_by=admin.id, updated_at=now)
+        db.add(m)
+    db.commit()
+    return {"content": m.value}
+
+
 @router.get("/categories")
 def list_categories(current_user: User = Depends(get_current_user)):
     return [
@@ -230,6 +267,7 @@ def create_skill(
     name: str = Form(...),
     description: str = Form(""),
     category: str = Form("other"),
+    source: str = Form("internal"),
     version: str = Form("1.0.0"),
     changelog: str = Form(""),
     file: UploadFile = File(...),
@@ -261,6 +299,7 @@ def create_skill(
         author_name=current_user.username,
         version=version,
         changelog=changelog,
+        source=source if source in ("internal", "external") else "internal",
     )
     saved = repo.upsert(entity)
     return _skill_to_dict(saved)
@@ -271,6 +310,7 @@ def update_skill(
     name: str,
     description: str = Form(None),
     category: str = Form(None),
+    source: str = Form(None),
     version: str = Form(None),
     changelog: str = Form(None),
     file: Optional[UploadFile] = File(None),
@@ -298,6 +338,8 @@ def update_skill(
         existing.description = description
     if category is not None and category in VALID_CATEGORIES:
         existing.category = category
+    if source is not None and source in ("internal", "external"):
+        existing.source = source
     if version is not None:
         existing.version = version
     if changelog is not None:
