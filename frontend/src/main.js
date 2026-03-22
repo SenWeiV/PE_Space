@@ -1,0 +1,15 @@
+import { createApp } from "vue";
+import { createPinia } from "pinia";
+import App from "./App.vue";
+import router from "./router";
+
+// Ant Design Vue global styles (required for component styling)
+import "ant-design-vue/dist/reset.css";
+import Antd from "ant-design-vue";
+
+const app = createApp(App);
+app.use(createPinia());
+app.use(router);
+app.use(Antd);
+app.mount("#root");
+
