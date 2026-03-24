@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
@@ -150,6 +152,43 @@ async def download_stored_file(
         raise HTTPException(status_code=404, detail="文件不存在")
     except Exception as e:
         raise HTTPException(status_code=403, detail=str(e))
+
+
+@router.get("/bridge-downloads/{file_path:path}")
+async def download_bridge_file(
+    file_path: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """下载 Bridge 上传的文件。
+
+    文件路径格式: {app_id}/{date}/{filename}
+    权限检查: admin 可下载所有，普通用户检查 app_extra 记录中的 username
+    """
+    from app.config import settings
+    base = Path(settings.bridge_uploads_dir).resolve()
+    target = (base / file_path).resolve()
+
+    # 安全检查
+    if not str(target).startswith(str(base)):
+        raise HTTPException(status_code=403, detail="访问被拒绝")
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    # 权限检查（非 admin 需要验证是否是自己的文件）
+    if current_user.role != "admin":
+        from app.models.app_extra import AppExtra
+        result = await db.execute(
+            select(AppExtra).where(
+                AppExtra.file_path == file_path,
+                AppExtra.username == current_user.username
+            )
+        )
+        if not result.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="无权访问此文件")
+
+    return FileResponse(path=target, filename=target.name)
 
 
 @router.get("/{app_id}/logs")

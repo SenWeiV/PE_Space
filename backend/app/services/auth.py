@@ -1,6 +1,7 @@
 """认证服务：JWT 生成/解码、密码哈希、登录、修改密码、验证 App 访问。"""
 from __future__ import annotations
 
+import hmac
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -99,3 +100,22 @@ def verify_app_access(token: str | None) -> dict | None:
         "role": payload.get("role", ""),
         "user_id": int(payload["sub"]),
     }
+
+
+# ── Bridge Secret (容器认证) ──────────────────────────────
+
+def generate_bridge_secret(app_id: int) -> str:
+    """生成容器专属密钥，用于 Bridge 进程向后端认证。"""
+    return hmac.new(
+        settings.jwt_secret.encode(),
+        f"bridge:{app_id}".encode(),
+        "sha256",
+    ).hexdigest()[:32]
+
+
+def verify_bridge_secret(app_id: int, secret: str) -> bool:
+    """验证 Bridge 密钥。"""
+    if not secret:
+        return False
+    expected = generate_bridge_secret(app_id)
+    return hmac.compare_digest(expected, secret)

@@ -431,7 +431,7 @@ async def delete_app(db: AsyncSession, app_id: int, user_id: int, role: str) -> 
         if down_base.exists():
             shutil.rmtree(down_base, ignore_errors=True)
 
-    await db.execute(delete(AppExtra).where(AppExtra.app_id == app.id))
+    # 不再删除 app_extra 记录，保留历史数据
     await db.delete(app)
     await db.commit()
 

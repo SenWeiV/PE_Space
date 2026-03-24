@@ -1,5 +1,5 @@
 # 平台生成应用镜像时使用的 Dockerfile 模板（由 docker.py 读取并写入各应用构建目录）。
-# 占位符：{slug} 会替换为应用的 URL 路径名。
+# 占位符：ssssssss 会替换为应用的 URL 路径名。
 
 FROM iregistry.baidu-int.com/baidu-base/python:3.11
 WORKDIR /app
@@ -29,6 +29,6 @@ CMD ["sh", "-c", "python /app/pe_bridge.py & exec streamlit run app_wrapper.py \
      --server.port=8501 \
      --server.address=0.0.0.0 \
      --server.headless=true \
-     --server.baseUrlPath=/apps/{slug} \
+     --server.baseUrlPath=/apps/ssssssss \
      --server.enableXsrfProtection=false \
      --browser.gatherUsageStats=false"]

@@ -26,17 +26,43 @@ def app_code_storage_dirname(username: str, app_name: str, app_id: int) -> str:
 
 
 def app_upload_base_from_code_path(upload_root: Path, code_path_str: str | None, app_id: int) -> Path:
-    """由当前代码目录（upload_path）反推解压根目录（upload_root 下的第一级子目录）。"""
+    """由当前代码目录（upload_path）反推解压根目录（upload_root 下的第一级子目录）。
+
+    支持两种路径格式：
+    1. 宿主机绝对路径：/Users/.../data/uploads/apps/bizhiyuan_xxx_32
+    2. 容器内路径：/data/uploads/apps/bizhiyuan_xxx_32（数据库存储的可能是容器路径）
+    """
     root = upload_root.resolve()
     if not code_path_str:
         return root / str(app_id)
+
+    code_path = Path(code_path_str)
+
+    # 尝试直接解析（宿主机路径）
     try:
-        rel = Path(code_path_str).resolve().relative_to(root)
+        rel = code_path.resolve().relative_to(root)
+        if rel.parts:
+            return root / rel.parts[0]
     except ValueError:
-        return root / str(app_id)
-    if not rel.parts:
-        return root / str(app_id)
-    return root / rel.parts[0]
+        pass
+
+    # 如果是容器路径（如 /data/uploads/apps/xxx），提取目录名
+    # 容器路径通常以 /data/uploads/apps/ 或 /uploads/apps/ 开头
+    path_str = str(code_path)
+    for container_prefix in ("/data/uploads/apps/", "/uploads/apps/"):
+        if path_str.startswith(container_prefix):
+            remaining = path_str[len(container_prefix):]
+            # 取第一个路径片段作为目录名
+            dirname = remaining.split("/")[0]
+            if dirname:
+                return root / dirname
+
+    # 最后回退：直接用路径中的目录名（如果包含 app_id）
+    for part in code_path.parts:
+        if part.endswith(f"_{app_id}"):
+            return root / part
+
+    return root / str(app_id)
 
 
 def app_upload_base_path(upload_root: Path, app: App) -> Path:

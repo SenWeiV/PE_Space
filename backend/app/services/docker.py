@@ -10,6 +10,7 @@ from pathlib import Path
 import docker
 
 from app.config import settings
+from app.services.auth import generate_bridge_secret
 from app.utils.upload_paths import app_upload_base_from_code_path
 
 _DOCKERFILE_TEMPLATE_FILE = Path(__file__).with_name("Dockerfile.platform.template")
@@ -110,9 +111,9 @@ class DockerService:
         # 生成 Dockerfile
         bp.joinpath("Dockerfile").write_text(_load_dockerfile_template().format(slug=slug))
 
-        # 可选：注入平台文件（如 pe_utils.py）；入口由 Dockerfile CMD 使用 app_original.py
+        # 可选：注入平台文件（pe_bridge.py, pe_utils.py, app_wrapper.py 等）
         injected_dir = Path(__file__).parent / "injected"
-        for fname in ("pe_entry.py", "pe_utils.py"):
+        for fname in ("pe_entry.py", "pe_utils.py", "pe_bridge.py", "app_wrapper.py"):
             src = injected_dir / fname
             if src.exists():
                 (bp / fname).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
@@ -163,6 +164,9 @@ class DockerService:
         data_dir_api = Path(settings.down_dir) / base_host.name
         data_dir_api.mkdir(parents=True, exist_ok=True)
 
+        # 生成 Bridge 密钥
+        bridge_secret = generate_bridge_secret(app_id)
+
         container = self._client.containers.run(
             image=image_tag, name=container_name, detach=True,
             ports={"8501/tcp": host_port},
@@ -171,6 +175,8 @@ class DockerService:
                 "HOST_IP": settings.host_ip,
                 "PE_APP_ID": str(app_id),
                 "PE_API_BASE": f"http://{settings.host_ip}:8000/api/app-data",
+                "PE_BRIDGE_SECRET": bridge_secret,
+                "PE_WATCH_DIR": "/app/data/outputs",
             },
             labels={"tool-platform.app_id": str(app_id), "tool-platform.slug": slug},
             restart_policy={"Name": "unless-stopped"},

@@ -36,11 +36,13 @@ services:
       DOWN_DIR: /data/down
       HOST_DOWN_DIR: ${BACKEND_DATA_ROOT:-${PWD}/data}/down
       DOWNLOAD_STORAGE_DIR: /data/downloads
+      BRIDGE_UPLOADS_DIR: /data/bridge_uploads
       TRAEFIK_DYNAMIC_DIR: /data/traefik-dynamic
     volumes:
       - ${BACKEND_DATA_ROOT:-${PWD}/data}/uploads/apps:/data/uploads/apps
       - ${BACKEND_DATA_ROOT:-${PWD}/data}/down:/data/down
       - ${BACKEND_DATA_ROOT:-${PWD}/data}/downloads:/data/downloads
+      - ${BACKEND_DATA_ROOT:-${PWD}/data}/bridge_uploads:/data/bridge_uploads
       - ${BACKEND_DATA_ROOT:-${PWD}/data}/traefik-dynamic:/data/traefik-dynamic
       - ${BACKEND_DATA_ROOT:-${PWD}/data}/skills:/data/skills
       - /var/run/docker.sock:/var/run/docker.sock

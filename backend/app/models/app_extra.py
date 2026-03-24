@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Index
+from sqlalchemy import DateTime, Integer, String, Index
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +15,9 @@ class AppExtra(Base):
     - 0: 仅打开应用页（访问）
     - 1: 对该应用发起 API 请求（使用）
     - 2: 下载文件
+    - 3: Bridge 自动上传
+
+    注意：app_id 不再是外键，删除应用不会影响历史记录。
     """
 
     __tablename__ = "app_extra"
@@ -25,7 +28,10 @@ class AppExtra(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    app_id: Mapped[int] = mapped_column(Integer, ForeignKey("apps.id"), nullable=False, index=True)
+    # 不再使用外键，删除应用不影响记录
+    app_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # 冗余存储应用名称，便于应用删除后仍可查询
+    app_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     username: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     summary: Mapped[int] = mapped_column(TINYINT, nullable=False)

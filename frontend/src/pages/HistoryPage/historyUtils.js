@@ -7,7 +7,7 @@ export const formatSize = (bytes) => {
 export const CATEGORY_STYLE = {
   result: { color: "green", label: "结果" },
   detail: { color: "blue", label: "明细" },
-  output: { color: "default", label: "产出" },
+  output: { color: "cyan", label: "产出" },
   download: { color: "purple", label: "下载" },
 };
 

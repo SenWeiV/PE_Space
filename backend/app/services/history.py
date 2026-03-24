@@ -36,6 +36,8 @@ def _get_summary_type(summary: int, file_path: str | None) -> str:
         return "访问"
     elif summary == 2:
         return "下载"
+    elif summary == 3:
+        return "下载"  # Bridge 上传的文件也显示为"下载"
     return "其他"
 
 
@@ -98,25 +100,37 @@ async def list_grouped_runs(db: AsyncSession, user_id: int, role: str) -> dict:
     """从数据库查询历史记录，每条记录独立返回。
 
     改造后不再扫描磁盘，直接从 app_extra 表查询。
+    支持显示已删除应用的记录（使用记录中保存的 app_name）。
     """
-    # 获取用户可访问的应用
+    # 获取所有应用（用于显示应用名称，已删除的用记录中的 app_name）
     result = await db.execute(select(App))
     apps = list(result.scalars().all())
-    if role != "admin":
-        apps = [a for a in apps if a.owner_id == user_id]
-    if not apps:
-        return {"groups": []}
-
-    app_ids = [a.id for a in apps]
     app_map = {a.id: a for a in apps}
 
-    # 查询所有历史记录
-    r = await db.execute(
-        select(AppExtra)
-        .where(AppExtra.app_id.in_(app_ids))
-        .order_by(AppExtra.timestamp.desc(), AppExtra.id.desc())
-        .limit(500)
-    )
+    # 构建查询条件
+    if role == "admin":
+        # admin 可以看到所有记录
+        query = (
+            select(AppExtra)
+            .order_by(AppExtra.timestamp.desc(), AppExtra.id.desc())
+            .limit(500)
+        )
+    else:
+        # 普通用户只能看到自己的记录（按 username 过滤）
+        from app.models.user import User
+        user_result = await db.execute(select(User.username).where(User.id == user_id))
+        username = user_result.scalar_one_or_none()
+        if not username:
+            return {"groups": []}
+
+        query = (
+            select(AppExtra)
+            .where(AppExtra.username == username)
+            .order_by(AppExtra.timestamp.desc(), AppExtra.id.desc())
+            .limit(500)
+        )
+
+    r = await db.execute(query)
     records = list(r.scalars().all())
 
     # 构建记录列表
@@ -138,17 +152,19 @@ def _build_records_list(records: list[AppExtra], app_map: dict) -> list[dict]:
 
     for rec in records:
         app = app_map.get(rec.app_id)
-        if not app:
-            continue
+        # 即使应用被删除，也使用记录中保存的 app_name
+        app_name = rec.app_name or (app.name if app else f"已删除应用({rec.app_id})")
+        app_slug = app.slug if app else ""
 
         ts_key = rec.timestamp.strftime("%Y%m%d_%H%M%S")
         summary_type = _get_summary_type(rec.summary, rec.file_path)
 
         item = {
             "ts_key": ts_key,
-            "app_id": app.id,
-            "app_name": app.name,
-            "app_slug": app.slug,
+            "app_id": rec.app_id,
+            "app_name": app_name,
+            "app_slug": app_slug,
+            "app_deleted": app is None,
             "timestamp": rec.timestamp.isoformat(),
             "username": rec.username or "",
             "summary_type": summary_type,
@@ -159,13 +175,22 @@ def _build_records_list(records: list[AppExtra], app_map: dict) -> list[dict]:
             "files": [],
         }
 
-        # 如果是下载记录，添加文件信息
-        if rec.summary == 2 and rec.file_path:
+        # 如果是下载或自动上传记录，添加文件信息
+        if rec.summary in (2, 3) and rec.file_path:
+            # 根据 summary 类型确定下载路径
+            if rec.summary == 3:
+                # Bridge 上传的文件，路径格式: {app_id}/{date}/{filename}
+                download_url = f"/api/apps/bridge-downloads/{rec.file_path}"
+            else:
+                # 普通下载，路径格式: {app_id}/{username}/{date}/{filename}
+                download_url = f"/api/apps/downloads/{rec.file_path}"
+
             item["files"].append({
                 "name": rec.file_original_name or Path(rec.file_path).name,
                 "path": rec.file_path,
                 "size": rec.file_size or 0,
                 "category": "download",
+                "download_url": download_url,
             })
 
         result.append(item)
@@ -189,6 +214,7 @@ async def record_view(db: AsyncSession, app_id: int, username: str = "anonymous"
         db.add(
             AppExtra(
                 app_id=app_id,
+                app_name=app.name,
                 username=(username or "anonymous")[:255],
                 timestamp=now_cst(),
                 summary=1,  # 访问

@@ -1,5 +1,5 @@
 <template>
-  <div class="hp-card">
+  <div class="hp-card" :class="{ 'hp-card-deleted': record.app_deleted }">
     <div class="hp-card-head">
       <div class="hp-head-left">
         <span class="hp-time">
@@ -16,8 +16,12 @@
         >
           {{ record.summary_type || "其他" }}
         </span>
-        <span class="hp-tag-tool">{{ record.app_name }}</span>
+        <span class="hp-tag-tool" :class="{ 'hp-tag-deleted': record.app_deleted }">
+          {{ record.app_name }}
+          <span v-if="record.app_deleted" class="hp-deleted-badge">已删除</span>
+        </span>
         <span v-if="record.username" class="hp-tag-user">{{ record.username }}</span>
+        <span v-if="record.client_ip && showClientIp" class="hp-tag-ip">{{ record.client_ip }}</span>
       </div>
       <span v-if="visibleFiles.length > 0" class="hp-file-count">{{ visibleFiles.length }}个文件</span>
     </div>
@@ -38,6 +42,7 @@
         </span>
         <span class="hp-fsize">{{ formatSize(file.size) }}</span>
         <a-button
+          v-if="!record.app_deleted"
           type="text"
           size="small"
           class="hp-dl"
@@ -48,6 +53,7 @@
             <DownloadOutlined />
           </template>
         </a-button>
+        <span v-else class="hp-dl-disabled">不可下载</span>
       </div>
     </div>
   </div>
@@ -83,6 +89,12 @@ const showRequestPath = computed(() => {
   const code = props.record.summary_code;
   return code === 1 || code === 2;
 });
+
+/** 是否显示 IP 地址（访问类型显示） */
+const showClientIp = computed(() => {
+  const code = props.record.summary_code;
+  return code === 1;
+});
 </script>
 
 <style scoped>
@@ -91,6 +103,11 @@ const showRequestPath = computed(() => {
   border: 1px solid #e8e8e8;
   border-radius: 4px;
   padding: 16px 18px;
+}
+
+.hp-card-deleted {
+  background: #fafafa;
+  border-color: #d9d9d9;
 }
 
 .hp-card-head {
@@ -123,13 +140,31 @@ const showRequestPath = computed(() => {
 }
 
 .hp-tag-tool {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   color: #262626;
   background: #f5f5f5;
   border: 1px solid #f0f0f0;
   padding: 2px 10px;
   border-radius: 4px;
+}
+
+.hp-tag-deleted {
+  color: #8c8c8c;
+  background: #f0f0f0;
+  border-color: #d9d9d9;
+}
+
+.hp-deleted-badge {
+  font-size: 11px;
+  color: #ff4d4f;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  padding: 0 4px;
+  border-radius: 2px;
+  margin-left: 2px;
 }
 
 .hp-tag-action {
@@ -167,6 +202,16 @@ const showRequestPath = computed(() => {
   background: #e6f4ff;
   border: 1px solid #91caff;
   padding: 2px 10px;
+  border-radius: 4px;
+}
+
+.hp-tag-ip {
+  display: inline-block;
+  font-size: 12px;
+  color: #8c8c8c;
+  background: #fafafa;
+  border: 1px solid #d9d9d9;
+  padding: 2px 8px;
   border-radius: 4px;
 }
 
@@ -235,6 +280,12 @@ const showRequestPath = computed(() => {
 
 .hp-dl {
   color: #1677ff;
+  flex-shrink: 0;
+}
+
+.hp-dl-disabled {
+  font-size: 12px;
+  color: #bfbfbf;
   flex-shrink: 0;
 }
 </style>

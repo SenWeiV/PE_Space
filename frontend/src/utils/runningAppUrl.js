@@ -1,6 +1,6 @@
 /**
- * 运行中的应用实际监听在 Docker 映射的 host_port 上，路径仍为 access_url（如 /apps/slug/）。
- * 若用前端站点同源相对路径打开，会命中 Vue 的 /apps/:appId，把 slug 当成 id 导致 NaN。
+ * 运行中的应用实际监听在 Docker 映射的 host_port 上，路径为 /apps/{slug}/。
+ * 直接访问容器端口，用户信息通过 URL 参数 pe_user 传递。
  */
 
 /** Streamlit 在启用 baseUrlPath 时，路径无末尾 / 时易白屏（静态资源、重定向异常） */

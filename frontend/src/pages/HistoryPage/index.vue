@@ -182,12 +182,33 @@ const handleDownload = async (appId, file) => {
   const key = `${appId}/${file.path}`;
   downloading.value = key;
   try {
-    await downloadAppFile(appId, file.path, file.name);
+    // 优先使用 download_url，否则使用旧的下载方式
+    if (file.download_url) {
+      await downloadByUrl(file.download_url, file.name);
+    } else {
+      await downloadAppFile(appId, file.path, file.name);
+    }
   } catch {
     message.error("文件不存在或已删除");
   } finally {
     downloading.value = null;
   }
+};
+
+/** 通过 URL 下载文件 */
+const downloadByUrl = async (url, filename) => {
+  const { getToken } = await import("@/utils/authStorage");
+  const token = getToken();
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("下载失败");
+  const blob = await response.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
 };
 </script>
 

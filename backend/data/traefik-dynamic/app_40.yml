@@ -1,0 +1,14 @@
+http:
+  routers:
+    app-40:
+      rule: "PathPrefix(`/apps/ssssssss`)"
+      middlewares:
+        - pe-auth
+      service: app-40-svc
+      priority: 5
+
+  services:
+    app-40-svc:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8600"

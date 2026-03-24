@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -26,6 +27,7 @@ from app.utils.download_storage import (
     parse_filename_from_disposition,
 )
 from app.utils.time import now_cst
+from app.utils.upload_paths import app_code_storage_dirname
 
 router = APIRouter(tags=["proxy"])
 log = logging.getLogger(__name__)
@@ -86,9 +88,43 @@ def extract_username_from_request(request: Request) -> str:
     return "anonymous"
 
 
+def extract_token_from_request(request: Request) -> Optional[str]:
+    """从请求中提取原始 token。"""
+    # 优先从 Authorization 头获取
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:].strip()
+
+    # 从 Cookie 获取
+    return request.cookies.get("token")
+
+
+def write_token_to_app_data(app: App, token: str, username: str) -> None:
+    """将 token 和用户名写入应用数据目录，供 Bridge 读取。
+
+    写入文件: {down_dir}/{app_dirname}/.pe_token
+    格式: token\nusername
+    """
+    try:
+        # 从 upload_path 推断应用目录名
+        if not app.upload_path:
+            return
+
+        # 应用目录名格式: {username}_{appname}_{id}
+        app_dirname = Path(app.upload_path).name
+        token_file = Path(settings.down_dir) / app_dirname / ".pe_token"
+
+        # 写入 token 和 username
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        token_file.write_text(f"{token}\n{username}", encoding="utf-8")
+    except Exception as e:
+        log.warning("写入 token 文件失败: %s", e)
+
+
 async def record_proxy_access(
     db: AsyncSession,
     app_id: int,
+    app_name: Optional[str],
     username: str,
     request_path: str,
     request_method: str,
@@ -102,6 +138,7 @@ async def record_proxy_access(
     summary = 2 if file_path else 1  # 2=下载, 1=使用
     db.add(AppExtra(
         app_id=app_id,
+        app_name=app_name,
         username=username,
         timestamp=now_cst(),
         summary=summary,
@@ -137,11 +174,23 @@ async def proxy_http(
     if app.status != "running" or not app.host_port:
         raise HTTPException(503, f"应用 {slug} 未运行")
 
-    # 2. 提取用户信息
+    # 2. 提取用户信息和 token
     username = extract_username_from_request(request)
+    token = extract_token_from_request(request)
     client_ip = get_client_ip(request)
 
-    # 3. 构建上游 URL
+    # 3. 强制 token 验证：未登录用户返回 401
+    if username == "anonymous":
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "AUTH_REQUIRED", "message": "需要登录才能访问应用"},
+        )
+
+    # 4. 将 token 写入应用数据目录，供 Bridge 读取
+    if token:
+        write_token_to_app_data(app, token, username)
+
+    # 5. 构建上游 URL
     upstream_url = f"http://{settings.host_ip}:{app.host_port}/apps/{slug}/{path}"
     if request.query_params:
         upstream_url += f"?{request.query_params}"
@@ -197,7 +246,7 @@ async def proxy_http(
     request_path = f"/proxy/{slug}/{path}"
     try:
         await record_proxy_access(
-            db, app.id, username, request_path, request.method,
+            db, app.id, app.name, username, request_path, request.method,
             client_ip, response.status_code,
             file_path, file_size, file_original_name,
         )
@@ -253,7 +302,7 @@ async def proxy_websocket(websocket: WebSocket, slug: str, path: str):
 
         try:
             await record_proxy_access(
-                db, app.id, username, f"/proxy/{slug}/{path}",
+                db, app.id, app.name if app else None, username, f"/proxy/{slug}/{path}",
                 "WS", websocket.client.host if websocket.client else "unknown",
                 101,  # WebSocket upgrade status
             )
