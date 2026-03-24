@@ -1,0 +1,15 @@
+services:
+  pe-space-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pe-space-tools
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    command: ["sleep", "infinity"]

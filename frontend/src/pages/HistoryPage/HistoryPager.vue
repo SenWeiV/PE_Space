@@ -1,58 +1,48 @@
 <template>
-  <div v-if="totalPages > 1" class="hp-pager">
-    <button type="button" class="hp-page-btn" :disabled="page <= 1" @click="emit('update:page', Math.max(1, page - 1))">
-      上一页
-    </button>
-    <span class="hp-page-info">{{ page }} / {{ totalPages }}</span>
-    <button
-      type="button"
-      class="hp-page-btn"
-      :disabled="page >= totalPages"
-      @click="emit('update:page', Math.min(totalPages, page + 1))"
-    >
-      下一页
-    </button>
+  <div v-if="total > 0" class="hp-pager-wrap">
+    <a-pagination
+      :current="page"
+      :page-size="pageSize"
+      :total="total"
+      :show-size-changer="true"
+      :page-size-options="pageSizeOptions"
+      show-less-items
+      :show-total="showTotal"
+      @update:current="emit('update:page', $event)"
+      @update:page-size="onPageSizeChange"
+    />
   </div>
 </template>
 
 <script setup>
 defineProps({
   page: { type: Number, required: true },
-  totalPages: { type: Number, required: true },
+  pageSize: { type: Number, required: true },
+  total: { type: Number, required: true },
 });
 
-const emit = defineEmits(["update:page"]);
+const pageSizeOptions = ["10", "15", "30", "50"];
+
+const showTotal = (t) => `共 ${t} 条`;
+
+const emit = defineEmits(["update:page", "update:pageSize"]);
+
+const onPageSizeChange = (size) => {
+  emit("update:pageSize", size);
+  emit("update:page", 1);
+};
 </script>
 
 <style scoped>
-.hp-pager {
+.hp-pager-wrap {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 24px 0 16px;
+  padding: 20px 0 8px;
 }
 
-.hp-page-btn {
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid #e5e5e5;
-  border-radius: 6px;
-  background: #fff;
-  color: #333;
-  cursor: pointer;
-}
-
-.hp-page-btn:disabled {
-  background: #fafafa;
-  color: #ccc;
-  cursor: not-allowed;
-}
-
-.hp-page-info {
-  font-size: 13px;
-  color: #666;
-  padding: 0 12px;
+.hp-pager-wrap :deep(.ant-pagination) {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 8px;
 }
 </style>

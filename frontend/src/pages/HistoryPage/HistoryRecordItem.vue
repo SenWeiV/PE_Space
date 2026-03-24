@@ -1,41 +1,46 @@
 <template>
-  <div class="hp-record">
-    <div class="hp-record-meta" :class="{ 'hp-record-meta--mb': visibleFiles.length > 0 }">
-      <span class="hp-time">
-        <ClockCircleOutlined class="hp-time-icon" />
-        {{ record.timestamp ? dayjs(record.timestamp).format("YYYY-MM-DD HH:mm") : "-" }}
-      </span>
-
-      <span class="hp-app-pill">
-        <AppstoreOutlined class="hp-app-pill-icon" />
-        {{ record.app_name }}
-      </span>
-
-      <span v-if="record.username" class="hp-user-pill">
-        <UserOutlined class="hp-user-pill-icon" />
-        {{ record.username }}
-      </span>
-
-      <span class="hp-file-count">{{ visibleFiles.length }} 个文件</span>
+  <div class="hp-card">
+    <div class="hp-card-head">
+      <div class="hp-head-left">
+        <span class="hp-time">
+          <ClockCircleOutlined class="hp-clock" />
+          {{ timeLabel }}
+        </span>
+        <span
+          class="hp-tag-action"
+          :style="{
+            color: actionStyle.color,
+            background: actionStyle.bg,
+            borderColor: actionStyle.border,
+          }"
+        >
+          {{ record.summary_type || "其他" }}
+        </span>
+        <span class="hp-tag-tool">{{ record.app_name }}</span>
+        <span v-if="record.username" class="hp-tag-user">{{ record.username }}</span>
+      </div>
+      <span v-if="visibleFiles.length > 0" class="hp-file-count">{{ visibleFiles.length }}个文件</span>
     </div>
 
-    <div v-if="visibleFiles.length > 0" class="hp-files">
-      <div v-for="file in visibleFiles" :key="file.path" class="hp-file-row">
-        <a-tag class="hp-file-tag" :color="CATEGORY_STYLE[file.category]?.color || CATEGORY_STYLE.output.color">
+    <p v-if="record.request_path && showRequestPath" class="hp-line-path">
+      <span class="hp-method">{{ record.request_method }}</span>
+      {{ record.request_path }}
+    </p>
+
+    <div v-if="visibleFiles.length > 0" class="hp-file-list">
+      <div v-for="file in visibleFiles" :key="file.path" class="hp-file-line">
+        <a-tag class="hp-cat" :color="CATEGORY_STYLE[file.category]?.color || CATEGORY_STYLE.output.color">
           {{ CATEGORY_STYLE[file.category]?.label || CATEGORY_STYLE.output.label }}
         </a-tag>
-
-        <span class="hp-file-name">
+        <span class="hp-fname">
           <FileIcon :name="file.name" />
-          {{ file.name }}
+          <span class="hp-fname-text">{{ file.name }}</span>
         </span>
-
-        <span class="hp-file-size">{{ formatSize(file.size) }}</span>
-
+        <span class="hp-fsize">{{ formatSize(file.size) }}</span>
         <a-button
-          class="hp-download"
-          size="small"
           type="text"
+          size="small"
+          class="hp-dl"
           :loading="downloadingKey === `${record.app_id}/${file.path}`"
           @click="emit('download', file)"
         >
@@ -50,10 +55,10 @@
 
 <script setup>
 import dayjs from "dayjs";
-import FileIcon from "@/components/FileIcon.vue";
-import { AppstoreOutlined, ClockCircleOutlined, DownloadOutlined, UserOutlined } from "@ant-design/icons-vue";
-import { CATEGORY_STYLE, formatSize, getVisibleFiles } from "./historyUtils";
 import { computed } from "vue";
+import FileIcon from "@/components/FileIcon.vue";
+import { ClockCircleOutlined, DownloadOutlined } from "@ant-design/icons-vue";
+import { CATEGORY_STYLE, SUMMARY_TYPE_STYLE, formatSize, getVisibleFiles } from "./historyUtils";
 
 const props = defineProps({
   record: { type: Object, required: true },
@@ -63,128 +68,173 @@ const props = defineProps({
 const emit = defineEmits(["download"]);
 
 const visibleFiles = computed(() => getVisibleFiles(props.record));
+
+const timeLabel = computed(() =>
+  props.record.timestamp ? dayjs(props.record.timestamp).format("YYYY-MM-DD HH:mm:ss") : "-",
+);
+
+const actionStyle = computed(() => {
+  const type = props.record.summary_type || "其他";
+  return SUMMARY_TYPE_STYLE[type] || SUMMARY_TYPE_STYLE["其他"];
+});
+
+/** 是否显示请求路径（访问和下载类型显示） */
+const showRequestPath = computed(() => {
+  const code = props.record.summary_code;
+  return code === 1 || code === 2;
+});
 </script>
 
 <style scoped>
-.hp-record {
+.hp-card {
   background: #fff;
-  border: 1px solid #eee;
-  border-radius: 10px;
-  padding: 16px 20px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 16px 18px;
 }
 
-.hp-record:hover {
-  border-color: #d0d0d0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.hp-record-meta {
+.hp-card-head {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.hp-record-meta--mb {
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
-.hp-time {
+.hp-head-left {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: #888;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.hp-time-icon {
-  font-size: 12px;
-}
-
-.hp-app-pill {
+.hp-time {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  font-size: 14px;
+  color: #262626;
+  font-weight: 500;
+}
+
+.hp-clock {
+  color: #8c8c8c;
+  font-size: 14px;
+}
+
+.hp-tag-tool {
+  display: inline-block;
   font-size: 13px;
-  font-weight: 600;
-  color: #1a1a1a;
+  color: #262626;
   background: #f5f5f5;
+  border: 1px solid #f0f0f0;
   padding: 2px 10px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
-.hp-app-pill-icon {
-  font-size: 11px;
-  color: #999;
-}
-
-.hp-user-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.hp-tag-action {
+  display: inline-block;
   font-size: 12px;
-  color: #666;
-  background: #f0f7ff;
+  font-weight: 500;
   padding: 2px 8px;
-  border-radius: 6px;
-  border: 1px solid #e0edff;
+  border-radius: 4px;
+  border: 1px solid;
 }
 
-.hp-user-pill-icon {
-  font-size: 10px;
+.hp-line-path {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin: 0 0 8px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.hp-method {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1677ff;
+  background: #e6f4ff;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+
+.hp-tag-user {
+  display: inline-block;
+  font-size: 13px;
+  color: #1677ff;
+  background: #e6f4ff;
+  border: 1px solid #91caff;
+  padding: 2px 10px;
+  border-radius: 4px;
 }
 
 .hp-file-count {
+  font-size: 13px;
+  color: #8c8c8c;
+  flex-shrink: 0;
+}
+
+.hp-line-summary,
+.hp-line-inputs {
   font-size: 12px;
-  color: #bbb;
-  margin-left: auto;
+  color: #595959;
+  margin: 0 0 8px;
+  line-height: 1.5;
 }
 
-.hp-files {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.hp-file-list {
   background: #fafafa;
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 4px;
+  padding: 8px 12px;
 }
 
-.hp-file-row {
+.hp-file-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.hp-file-line:last-child {
+  border-bottom: none;
+}
+
+.hp-cat {
+  margin: 0;
+  font-size: 12px;
+  line-height: 20px;
+  flex-shrink: 0;
+}
+
+.hp-fname {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
-}
-
-.hp-file-tag {
-  margin: 0;
-  font-size: 11px;
-  line-height: 18px;
-  flex-shrink: 0;
-}
-
-.hp-file-name {
+  min-width: 0;
   font-size: 13px;
-  color: #333;
-  flex: 1;
+  color: #262626;
+}
+
+.hp-fname-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: flex;
-  align-items: center;
 }
 
-.hp-file-size {
-  font-size: 11px;
-  color: #aaa;
-  white-space: nowrap;
+.hp-fsize {
+  font-size: 12px;
+  color: #8c8c8c;
   flex-shrink: 0;
+  min-width: 56px;
+  text-align: right;
 }
 
-.hp-download {
+.hp-dl {
   color: #1677ff;
-  padding: 0 6px;
   flex-shrink: 0;
 }
 </style>

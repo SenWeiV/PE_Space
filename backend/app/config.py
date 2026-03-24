@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     # 默认落在 backend/data/uploads/apps，本地可直接写入；生产可用环境变量设为绝对路径（如 /uploads/apps）
     upload_dir: str = str(_BACKEND_ROOT / "data" / "uploads" / "apps")
     host_upload_dir: str = str(_BACKEND_ROOT / "data" / "uploads" / "apps")
+    # 应用运行产出（outputs/history/results 等）统一落在 down/{解压根目录名}/，与代码目录分离
+    down_dir: str = str(_BACKEND_ROOT / "data" / "down")
+    host_down_dir: str = str(_BACKEND_ROOT / "data" / "down")
+    # 统一下载文件存储目录（代理转发时拦截保存）
+    download_storage_dir: str = str(_BACKEND_ROOT / "data" / "downloads")
     # 本地默认写入 backend/data/traefik-dynamic；Docker 内可通过环境变量设为 /traefik-dynamic（与卷挂载一致）
     traefik_dynamic_dir: str = str(_BACKEND_ROOT / "data" / "traefik-dynamic")
     host_ip: str = "host.docker.internal"
@@ -35,7 +40,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_upload_paths(self) -> "Settings":
-        for name in ("upload_dir", "host_upload_dir", "traefik_dynamic_dir"):
+        for name in ("upload_dir", "host_upload_dir", "traefik_dynamic_dir", "down_dir", "host_down_dir", "download_storage_dir"):
             raw = getattr(self, name)
             p = Path(raw)
             if not p.is_absolute():

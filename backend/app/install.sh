@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # OpenClaw + Codex + PE Space 团队一键安装
-# 用法: curl -fsSL http://YOUR_PLATFORM_HOST:8080/install.sh | bash
+# 用法: PLATFORM_HOST=10.0.0.12 curl -fsSL http://10.0.0.12:8080/install.sh | bash
 
 set -euo pipefail
 
@@ -9,7 +9,14 @@ ok()   { printf "  ${GREEN}✓${RESET} %s\n" "$*"; }
 log()  { printf "  ${DIM}·${RESET} %s\n" "$*"; }
 warn() { printf "  ${YELLOW}⚠${RESET}  %s\n" "$*"; }
 
-SETUP_BASE="http://YOUR_PLATFORM_HOST:8080"
+PLATFORM_HOST="${PLATFORM_HOST:-YOUR_PLATFORM_HOST}"
+SETUP_BASE="${SETUP_BASE:-http://${PLATFORM_HOST}:8000}"
+
+if [[ "$PLATFORM_HOST" == "YOUR_PLATFORM_HOST" || "$SETUP_BASE" == *"YOUR_PLATFORM_HOST"* ]]; then
+  warn "请先设置真实平台地址，例如：PLATFORM_HOST=10.0.0.12"
+  warn "或直接设置：SETUP_BASE=http://10.0.0.12:8000"
+  exit 1
+fi
 
 printf "\n  ${BOLD}PE Space 团队环境安装${RESET}\n\n"
 
@@ -78,9 +85,13 @@ python3 -m pip install requests -q 2>/dev/null || pip3 install requests -q 2>/de
 ok "PE CLI 已安装 ($PE_BIN)"
 
 # ── PE Space 登录 ─────────────────────────────────────────────────────────────
-printf "\n  ${BOLD}登录 PE Space 平台${RESET}  (http://YOUR_PLATFORM_HOST)\n"
+printf "\n  ${BOLD}登录 PE Space 平台${RESET}  (http://${PLATFORM_HOST})\n"
 printf "  账号格式：姓名全拼，密码：全拼+123\n\n"
-pe login --url "http://YOUR_PLATFORM_HOST"
+if [[ ! -x "$PE_BIN" ]]; then
+  warn "未找到可执行的 PE CLI：$PE_BIN"
+  exit 1
+fi
+"$PE_BIN" login --url "http://${PLATFORM_HOST}"
 
 # ── 安装 PE Space Skill ───────────────────────────────────────────────────────
 SKILL_DIR="$HOME/.openclaw/workspace/skills/pe-space"

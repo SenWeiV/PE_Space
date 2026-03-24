@@ -114,6 +114,7 @@ import {
   HomeOutlined,
   AppstoreOutlined,
   HistoryOutlined,
+  ThunderboltOutlined,
   UserOutlined,
   FileTextOutlined,
   BarChartOutlined,
@@ -221,6 +222,7 @@ const handleLogout = async () => {
 const navItems = computed(() => [
   { path: "/", icon: HomeOutlined, label: "首页" },
   { path: "/apps", icon: AppstoreOutlined, label: "应用管理" },
+  { path: "/skills", icon: ThunderboltOutlined, label: "Skills 市场" },
   ...(isAnnotator.value ? [] : [{ path: "/history", icon: HistoryOutlined, label: "历史记录" }]),
 ]);
 

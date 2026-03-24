@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-const INSTALL_CMD = `curl -fsSL http://10.104.29.28/install.sh | bash`;
+const INSTALL_CMD = `curl -fsSL http://127.0.0.1:8000/install.sh | bash`;
 
 const handleCopy = async () => {
   try {

@@ -28,7 +28,7 @@
             <div class="st-user-name">{{ u.username }}</div>
             <div class="st-user-metrics">
               <span>访问 <b class="st-user-num">{{ u.view_count }}</b></span>
-              <span>运行 <b class="st-user-num">{{ u.run_count }}</b></span>
+              <span>使用 <b class="st-user-num">{{ u.run_count }}</b></span>
               <span>合计 <b class="st-user-num">{{ u.view_count + u.run_count }}</b></span>
             </div>
           </div>
@@ -159,7 +159,8 @@ const selectedAppUsers = computed(() => {
 const selectedAppOverview = computed(() => [
   { label: "访问次数", value: selectedApp.value?.view_count ?? 0 },
   { label: "访问人数", value: selectedApp.value?.view_users ?? 0 },
-  { label: "运行次数", value: selectedApp.value?.run_count ?? 0 },
+  { label: "使用次数", value: selectedApp.value?.run_count ?? 0 },
+  { label: "使用人数", value: selectedApp.value?.run_users ?? 0 },
 ]);
 
 const getAppIcon = (id) => APP_ICONS[id % APP_ICONS.length];
@@ -182,8 +183,8 @@ const appColumns = computed(() => [
   },
   { title: "访问次数", dataIndex: "view_count", key: "view_count" },
   { title: "访问人数", dataIndex: "view_users", key: "view_users" },
-  { title: "运行次数", dataIndex: "run_count", key: "run_count" },
-  { title: "运行人数", dataIndex: "run_users", key: "run_users" },
+  { title: "使用次数", dataIndex: "run_count", key: "run_count" },
+  { title: "使用人数", dataIndex: "run_users", key: "run_users" },
 ]);
 
 const userColumns = computed(() => [
@@ -202,7 +203,7 @@ const userColumns = computed(() => [
   },
   { title: "上传应用数", dataIndex: "upload_count", key: "upload_count" },
   { title: "访问次数", dataIndex: "view_count", key: "view_count" },
-  { title: "运行次数", dataIndex: "run_count", key: "run_count" },
+  { title: "使用次数", dataIndex: "run_count", key: "run_count" },
 ]);
 
 const usageDetailFilters = computed(() => {
@@ -234,7 +235,7 @@ const detailColumns = computed(() => [
     customRender: ({ text }) => h("span", { class: "stats-table-strong" }, text),
   },
   {
-    title: "运行次数",
+    title: "使用次数",
     dataIndex: "run_count",
     key: "run_count",
     customRender: ({ text }) => h("span", { class: "stats-table-strong" }, text),

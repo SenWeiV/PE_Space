@@ -130,24 +130,26 @@ async def get_history(app_id: int, db: AsyncSession = Depends(get_db), current_u
     return await history.get_app_history(db, app_id, current_user.username, current_user.role)
 
 
-@router.get("/{app_id}/outputs/{run_id}/{filename}")
-async def download_output(
-    app_id: int, run_id: str, filename: str,
+@router.get("/downloads/{file_path:path}")
+async def download_stored_file(
+    file_path: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    path = await history.get_output_path(db, app_id, run_id, filename, current_user.id, current_user.role)
-    return FileResponse(path=path, filename=filename)
+    """下载统一存储的文件。
 
-
-@router.get("/{app_id}/files/{file_path:path}")
-async def download_data_file(
-    app_id: int, file_path: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    path = await history.get_data_file_path(db, app_id, file_path, current_user.id, current_user.role)
-    return FileResponse(path=path, filename=path.name)
+    文件路径格式: {app_id}/{username}/{date}/{filename}
+    权限检查: 路径中的 username 必须匹配当前用户（或 admin）
+    """
+    try:
+        path = await history.get_download_file_path(
+            db, file_path, current_user.id, current_user.username, current_user.role
+        )
+        return FileResponse(path=path, filename=path.name)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    except Exception as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 @router.get("/{app_id}/logs")

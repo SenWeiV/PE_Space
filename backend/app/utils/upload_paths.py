@@ -44,5 +44,27 @@ def app_upload_base_path(upload_root: Path, app: App) -> Path:
     return app_upload_base_from_code_path(upload_root, app.upload_path, app.id)
 
 
-def app_data_dir(upload_root: Path, app: App) -> Path:
-    return app_upload_base_path(upload_root, app) / "data"
+def app_data_dir(upload_root: Path, down_root: Path, app: App) -> Path:
+    """应用运行时数据根目录（容器内 /app/data 对应宿主机 host_down_dir/{解压根名}/）。
+
+    新数据统一在 down_root；若仍存在历史上传目录下的 data/ 且有内容，则继续读该路径直至部署迁移。
+    """
+    base = app_upload_base_path(upload_root, app)
+    name = base.name
+    down_p = (Path(down_root) / name).resolve()
+    legacy = base / "data"
+
+    def _has_entries(path: Path) -> bool:
+        if not path.is_dir():
+            return False
+        try:
+            return any(path.iterdir())
+        except OSError:
+            return False
+
+    if _has_entries(down_p):
+        return down_p
+    if _has_entries(legacy):
+        return legacy
+    down_p.mkdir(parents=True, exist_ok=True)
+    return down_p

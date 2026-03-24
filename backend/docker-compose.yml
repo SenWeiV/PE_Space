@@ -1,0 +1,58 @@
+# 仅部署后端 API；数据库使用外部 MySQL，请在 .env 中配置 DATABASE_URL。
+#
+# 持久化：
+#   - 上传的应用包与解压目录（UPLOAD_DIR / HOST_UPLOAD_DIR）
+#   - 应用运行产出（DOWN_DIR / HOST_DOWN_DIR，与解压根目录名对应子文件夹）
+#   - 统一下载文件存储（DOWNLOAD_STORAGE_DIR，代理拦截的下载文件）
+#   - Traefik 动态路由文件（TRAEFIK_DYNAMIC_DIR）
+#   - Skills 市场文件（/data/skills）
+#
+# 部署子应用需要本机 Docker：已挂载 docker.sock。若不需要该能力可去掉对应 volumes 条目。
+#
+# BACKEND_DATA_ROOT：宿主机绝对路径，须与卷挂载左侧一致（子应用容器 bind 依赖此项）。
+# 可在 backend/.env 中设置；未设置时尝试用 ${PWD}/data（请在 backend 目录执行 docker compose）。
+#
+# 构建基座镜像：默认 DaoCloud（避免 auth.docker.io 被重置）。可直连 Hub 时在 .env 设：
+#   DOCKER_PYTHON_IMAGE=python:3.11-slim
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.11-slim}
+    image: tool-platform-backend:latest
+    container_name: tool-platform-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      # 容器内统一使用固定绝对路径；数据落在已挂载的卷上
+      UPLOAD_DIR: /data/uploads/apps
+      HOST_UPLOAD_DIR: ${BACKEND_DATA_ROOT:-${PWD}/data}/uploads/apps
+      DOWN_DIR: /data/down
+      HOST_DOWN_DIR: ${BACKEND_DATA_ROOT:-${PWD}/data}/down
+      DOWNLOAD_STORAGE_DIR: /data/downloads
+      TRAEFIK_DYNAMIC_DIR: /data/traefik-dynamic
+    volumes:
+      - ${BACKEND_DATA_ROOT:-${PWD}/data}/uploads/apps:/data/uploads/apps
+      - ${BACKEND_DATA_ROOT:-${PWD}/data}/down:/data/down
+      - ${BACKEND_DATA_ROOT:-${PWD}/data}/downloads:/data/downloads
+      - ${BACKEND_DATA_ROOT:-${PWD}/data}/traefik-dynamic:/data/traefik-dynamic
+      - ${BACKEND_DATA_ROOT:-${PWD}/data}/skills:/data/skills
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

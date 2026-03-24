@@ -4,11 +4,9 @@
     <p class="hp-sub">每次运行的所有产出文件汇总在一条记录中</p>
 
     <div class="hp-filters">
-      <FilterOutlined class="hp-filter-icon" />
-
       <a-range-picker
         :value="dateRange"
-        class="hp-w-260"
+        class="hp-picker"
         :allow-clear="true"
         :placeholder="['开始日期', '结束日期']"
         @change="onDateRangeChange"
@@ -16,49 +14,43 @@
 
       <a-auto-complete
         :value="userKeyword"
-        class="hp-w-170"
-        :data-source="userOptions"
+        class="hp-autocomplete"
+        :options="userOptions"
+        :allow-clear="true"
+        placeholder="搜索用户"
         @update:value="emit('update:userKeyword', $event)"
         @select="onUserSelect"
+        @clear="emit('update:userKeyword', '')"
       >
-        <template #default>
-          <a-input
-            :value="userKeyword"
-            placeholder="搜索用户"
-            :allow-clear="true"
-            @update:value="emit('update:userKeyword', $event)"
-          />
+        <template #prefix>
+          <UserOutlined class="hp-input-icon" />
         </template>
       </a-auto-complete>
 
       <a-auto-complete
         :value="appKeyword"
-        class="hp-w-170"
-        :data-source="appOptions"
+        class="hp-autocomplete hp-autocomplete-wide"
+        :options="appOptions"
+        :allow-clear="true"
+        placeholder="搜索工具"
         @update:value="emit('update:appKeyword', $event)"
         @select="onAppSelect"
+        @clear="emit('update:appKeyword', '')"
       >
-        <template #default>
-          <a-input
-            :value="appKeyword"
-            placeholder="搜索工具"
-            :allow-clear="true"
-            @update:value="emit('update:appKeyword', $event)"
-          />
+        <template #prefix>
+          <SearchOutlined class="hp-input-icon" />
         </template>
       </a-auto-complete>
 
       <button v-if="hasFilter" type="button" class="hp-clear-btn" @click="emit('clearFilters')">清除筛选</button>
 
-      <span v-if="!loading" class="hp-meta-count">
-        {{ metaCountText }}
-      </span>
+      <span v-if="!loading" class="hp-meta-count">{{ metaCountText }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { FilterOutlined } from "@ant-design/icons-vue";
+import { SearchOutlined, UserOutlined } from "@ant-design/icons-vue";
 
 defineProps({
   dateRange: { type: Array, default: null },
@@ -98,57 +90,66 @@ const onAppSelect = (val) => {
   top: 0;
   z-index: 10;
   background: #fafafa;
-  padding: 32px 0 16px;
+  padding: 24px 0 20px;
   border-bottom: 1px solid #f0f0f0;
 }
 
 .hp-title {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   color: #1a1a1a;
-  letter-spacing: -0.5px;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
 }
 
 .hp-sub {
-  font-size: 14px;
-  color: #888;
-  margin: 0 0 16px;
+  font-size: 13px;
+  color: #8c8c8c;
+  margin: 0 0 18px;
 }
 
 .hp-filters {
   display: flex;
   align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 12px;
 }
 
-.hp-filter-icon {
-  font-size: 13px;
-  color: #999;
+.hp-picker {
+  width: 280px;
+  max-width: 100%;
 }
 
-.hp-w-260 {
-  width: 260px;
+.hp-autocomplete {
+  width: 200px;
+  max-width: 100%;
 }
 
-.hp-w-170 {
-  width: 170px;
+.hp-autocomplete-wide {
+  width: 220px;
+}
+
+.hp-input-icon {
+  color: #bfbfbf;
 }
 
 .hp-clear-btn {
-  padding: 2px 10px;
-  font-size: 12px;
-  color: #999;
-  background: none;
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #595959;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
   cursor: pointer;
 }
 
+.hp-clear-btn:hover {
+  color: #1677ff;
+  border-color: #1677ff;
+}
+
 .hp-meta-count {
-  font-size: 12px;
-  color: #bbb;
+  font-size: 13px;
+  color: #8c8c8c;
   margin-left: auto;
 }
 </style>

@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -23,6 +23,7 @@ from app.exceptions import (
     UserNotFound,
 )
 from app.models.app import App
+from app.models.app_extra import AppExtra
 from app.models.user import User
 from app.services.docker import DockerService
 from app.services.nginx import NginxService, build_reverse_proxy_fields
@@ -214,20 +215,26 @@ async def upload_code(db: AsyncSession, app_id: int, zip_path: str, user_id: int
 def _extract_upload(zip_path: str, app_id: int, owner_username: str, app_name: str) -> str:
     dirname = app_code_storage_dirname(owner_username, app_name, app_id)
     base = Path(settings.upload_dir) / dirname
-    data_backup = None
-    data_dir = base / "data"
+    down_dir = Path(settings.down_dir) / dirname
 
-    # 备份 data 目录
-    if data_dir.exists():
+    down_backup = base / "_down_backup"
+    if down_backup.exists():
+        shutil.rmtree(down_backup)
+    if down_dir.exists():
+        shutil.move(str(down_dir), str(down_backup))
+
+    data_backup = None
+    legacy_data = base / "data"
+    if legacy_data.exists():
         data_backup = base / "_data_backup"
         if data_backup.exists():
             shutil.rmtree(data_backup)
-        shutil.move(str(data_dir), str(data_backup))
+        shutil.move(str(legacy_data), str(data_backup))
 
     # 清理并解压
     if base.exists():
         for item in base.iterdir():
-            if item.name.startswith("_data_backup"):
+            if item.name.startswith("_data_backup") or item.name.startswith("_down_backup"):
                 continue
             if item.is_dir():
                 shutil.rmtree(item)
@@ -237,15 +244,23 @@ def _extract_upload(zip_path: str, app_id: int, owner_username: str, app_name: s
 
     safe_extract_zip(zip_path, str(base))
 
-    # 恢复 data 目录
-    if data_backup and data_backup.exists():
-        if data_dir.exists():
-            shutil.rmtree(data_dir)
-        shutil.move(str(data_backup), str(data_dir))
+    # 运行产出统一在 down/；重传时先恢复备份，否则迁入旧版 uploads/.../data
+    if down_backup.exists():
+        if down_dir.exists():
+            shutil.rmtree(down_dir)
+        shutil.move(str(down_backup), str(down_dir))
+    elif data_backup and data_backup.exists():
+        if down_dir.exists():
+            shutil.rmtree(down_dir)
+        shutil.move(str(data_backup), str(down_dir))
+    else:
+        down_dir.mkdir(parents=True, exist_ok=True)
 
-    # 递增 deploy_version
-    data_dir.mkdir(parents=True, exist_ok=True)
-    ver_file = data_dir / ".deploy_version"
+    packaged_data = base / "data"
+    if packaged_data.is_dir():
+        shutil.rmtree(packaged_data, ignore_errors=True)
+
+    ver_file = down_dir / ".deploy_version"
     ver = 0
     if ver_file.exists():
         try:
@@ -410,6 +425,13 @@ async def delete_app(db: AsyncSession, app_id: int, user_id: int, role: str) -> 
         if upload_base.exists():
             shutil.rmtree(upload_base, ignore_errors=True)
 
+    down_name = app_upload_base_path(Path(settings.upload_dir), app).name
+    for root in {Path(settings.down_dir), Path(settings.host_down_dir)}:
+        down_base = root / down_name
+        if down_base.exists():
+            shutil.rmtree(down_base, ignore_errors=True)
+
+    await db.execute(delete(AppExtra).where(AppExtra.app_id == app.id))
     await db.delete(app)
     await db.commit()
 

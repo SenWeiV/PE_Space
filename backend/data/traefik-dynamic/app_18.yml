@@ -1,0 +1,14 @@
+http:
+  routers:
+    app-18:
+      rule: "PathPrefix(`/apps/test111`)"
+      middlewares:
+        - pe-auth
+      service: app-18-svc
+      priority: 5
+
+  services:
+    app-18-svc:
+      loadBalancer:
+        servers:
+          - url: "http://10.104.29.28:8600"

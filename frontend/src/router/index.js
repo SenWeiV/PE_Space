@@ -7,6 +7,7 @@ import HomePage from "@/pages/HomePage/index.vue";
 import AppsListPage from "@/pages/AppsListPage/index.vue";
 import AppDetailPage from "@/pages/AppDetailPage/index.vue";
 import HistoryPage from "@/pages/HistoryPage/index.vue";
+import SkillsPage from "@/pages/SkillsPage/index.vue";
 
 import UserManagePage from "@/pages/admin/UserManagePage/index.vue";
 import TemplateManagePage from "@/pages/admin/TemplateManagePage/index.vue";
@@ -25,6 +26,7 @@ const router = createRouter({
       children: [
         { path: "", name: "home", component: HomePage },
         { path: "apps", name: "apps", component: AppsListPage },
+        { path: "skills", name: "skills", component: SkillsPage },
         // 仅匹配数字 id，避免与 Streamlit 的 /apps/{slug}/ 冲突（slug 非数字时不再误进详情页后被重定向）
         { path: "apps/:appId(\\d+)", name: "appDetail", component: AppDetailPage },
         { path: "history", name: "history", component: HistoryPage, meta: { forbidAnnotator: true } },

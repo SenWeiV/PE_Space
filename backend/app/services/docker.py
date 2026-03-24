@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import socket
 from functools import lru_cache
 from pathlib import Path
@@ -146,18 +147,31 @@ class DockerService:
             except docker.errors.NotFound:
                 pass
 
-        # 准备数据目录（与解压根目录一致，不再仅用 app_id）
+        # 运行产出统一挂载到 host_down_dir/{解压根名}/，对应容器内 /app/data
         base_host = app_upload_base_from_code_path(Path(settings.host_upload_dir), build_path, app_id)
-        base_upload = app_upload_base_from_code_path(Path(settings.upload_dir), build_path, app_id)
-        data_dir_host = base_host / "data"
-        data_dir_container = base_upload / "data"
-        data_dir_container.mkdir(parents=True, exist_ok=True)
+        data_dir_host = Path(settings.host_down_dir) / base_host.name
+        data_dir_host.parent.mkdir(parents=True, exist_ok=True)
+
+        legacy_data = base_host / "data"
+        if legacy_data.is_dir():
+            if not data_dir_host.exists():
+                shutil.move(str(legacy_data), str(data_dir_host))
+            elif data_dir_host.is_dir() and not any(data_dir_host.iterdir()):
+                shutil.rmtree(data_dir_host)
+                shutil.move(str(legacy_data), str(data_dir_host))
+
+        data_dir_api = Path(settings.down_dir) / base_host.name
+        data_dir_api.mkdir(parents=True, exist_ok=True)
 
         container = self._client.containers.run(
             image=image_tag, name=container_name, detach=True,
             ports={"8501/tcp": host_port},
             volumes={str(data_dir_host): {"bind": "/app/data", "mode": "rw"}},
-            environment={"HOST_IP": settings.host_ip, "PE_APP_ID": str(app_id)},
+            environment={
+                "HOST_IP": settings.host_ip,
+                "PE_APP_ID": str(app_id),
+                "PE_API_BASE": f"http://{settings.host_ip}:8000/api/app-data",
+            },
             labels={"tool-platform.app_id": str(app_id), "tool-platform.slug": slug},
             restart_policy={"Name": "unless-stopped"},
         )
@@ -170,21 +184,25 @@ class DockerService:
         }
 
     def stop(self, container_name: str) -> None:
-        self._check_docker_available()
+        self._ensure_client()
         try:
             self._client.containers.get(container_name).stop()
         except docker.errors.NotFound:
             pass
 
     def restart(self, container_name: str) -> None:
-        self._check_docker_available()
+        self._ensure_client()
         try:
             self._client.containers.get(container_name).restart()
         except docker.errors.NotFound:
             raise RuntimeError(f"容器 {container_name} 不存在，请重新部署")
 
     def remove(self, container_name: str) -> None:
-        self._check_docker_available()
+        # 与 remove_image 一致：尚未成功连过 Docker 时先尝试连接；不可用则跳过（避免删除应用 500）
+        try:
+            self._ensure_client()
+        except RuntimeError:
+            return
         try:
             c = self._client.containers.get(container_name)
             c.stop()

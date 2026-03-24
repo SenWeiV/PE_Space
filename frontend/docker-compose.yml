@@ -1,0 +1,41 @@
+# 前端独立部署：静态资源无服务端状态，浏览器侧 token 等在 localStorage。
+# 持久化：Nginx access/error 日志挂载到命名卷，容器重建后仍可查看历史日志。
+#
+# 用法：
+#   cd frontend && docker compose up -d --build
+# 若需同机连本仓库后端 API，使用全栈编排：
+#   docker compose -f docker-compose.yml -f docker-compose.stack.yml up -d --build
+#
+# 环境变量（可选）：
+#   FRONTEND_PORT     宿主机端口，默认 8080
+#   DOCKER_NODE_IMAGE / DOCKER_NGINX_IMAGE  基座镜像（默认 DaoCloud；海外可改为官方 node/nginx）
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${DOCKER_NODE_IMAGE:-docker.m.daocloud.io/library/node:20-alpine}
+        NGINX_IMAGE: ${DOCKER_NGINX_IMAGE:-docker.m.daocloud.io/library/nginx:alpine}
+    image: tool-platform-frontend:${FRONTEND_IMAGE_TAG:-latest}
+    container_name: tool-platform-frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    volumes:
+      - nginx_logs:/var/log/nginx
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O /dev/null http://127.0.0.1/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  nginx_logs:
+    name: tool-platform-frontend-nginx-logs

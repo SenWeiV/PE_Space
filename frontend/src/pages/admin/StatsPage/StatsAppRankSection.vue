@@ -16,7 +16,7 @@
         </div>
         <div class="st-app-runs">
           {{ app.run_count }}
-          <span class="st-app-runs-suffix">次运行</span>
+          <span class="st-app-runs-suffix">次使用</span>
         </div>
         <div class="st-app-views">访问 {{ app.view_count }} 次</div>
       </div>
